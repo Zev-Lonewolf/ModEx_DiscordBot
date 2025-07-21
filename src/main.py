@@ -11,22 +11,22 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"ModEx está online como: {bot.user}!")
+    print(f"Usuário conectado: {bot.user}!")
 
 @bot.event
 async def on_guild_join(guild):
     for channel in guild.text_channels:
         if channel.permissions_for(guild.me).send_messages:
             embed = discord.Embed(
-                title="🌎 Select your language | Selecione seu idioma",
-                description="React with your language below:\n\n🇧🇷 **Português**\n🇺🇸 **English**",
-                color=discord.Color.blue()
+                title="**🌎 Choose your language | Escolha seu idioma**",
+                description="React with the 🇺🇸 emoji for **English** or/ou reaja com o emoji 🇧🇷 para **Português (BR)**",
+                color=discord.Color.greyple()
             )
-            embed.set_footer(text="ModEx - Language Setup / Setup de Idioma")
+            embed.set_footer(text="🔍 Auto-detecting roles on this server | Detectando cargos automaticamente")
 
             message = await channel.send(embed=embed)
-            await message.add_reaction("🇧🇷")
             await message.add_reaction("🇺🇸")
+            await message.add_reaction("🇧🇷")
             break
             
 
