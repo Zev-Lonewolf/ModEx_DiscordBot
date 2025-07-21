@@ -1,1 +1,3 @@
 src/.env
+language_data.json
+src/__pycache__/config.cpython-313.pyc
