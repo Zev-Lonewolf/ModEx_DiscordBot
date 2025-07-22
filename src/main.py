@@ -53,6 +53,10 @@ async def on_raw_reaction_add(payload):
         return
     
     guild_id = payload.guild_id
+    
+    if guild_id in language_data:
+        return
+    
     emoji = str(payload.emoji)
 
     if emoji == "🇺🇸":
@@ -72,30 +76,52 @@ async def on_raw_reaction_add(payload):
             embed = discord.Embed(
                 title="**👋 Hey! Eu sou o ModEx!**",
                 description=(
-                    "Sou um bot feito para **organizar e gerenciar modos personalizados** no seu servidor!\n"
-                    "E aí, qual desses comandos você precisa agora?\n\n"
+                    "Sou um bot feito para **organizar e gerenciar modos personalizados** no seu servidor! E aí, qual desses comandos você precisa agora?\n\n"
                     "**Comandos principais:**\n"
-                    "`!setup` → Abre o painel inicial do ModEx\n"
-                    "`!idioma` → Reabre a seleção de idioma\n\n"
+                    "`!Setup` → Abre o painel inicial do ModEx\n"
+                    "`!Idioma` → Reabre a seleção de idioma\n\n"
                     "**🌐 Site:** Em breve...\n"
                 ),
-                color=discord.Color.green()
+                color=discord.Color.blue()
             )
-            embed.set_footer(text="🔍 Verificando cargos para evitar erros...")
+            embed.set_footer(text="🔍 Confirmando cargos para evitar erros...")
         else:
             embed = discord.Embed(
                 title="**👋 Hey! I'm ModEx!**",
                 description=(
-                    "I'm a bot built to help you **organize and manage custom modes** in your server!\n"
-                    "So, which of these commands do you need right now?\n\n"
+                    "I'm a bot built to help you **organize and manage custom modes** in your server! So, which of these commands do you need right now?\n\n"
                     "**Main commands:**\n"
-                    "`!setup` → Opens ModEx’s initial panel\n"
-                    "`!language` → Reopens the language selection\n\n"
+                    "`!Setup` → Opens ModEx’s initial panel\n"
+                    "`!Language` → Reopens the language selection\n\n"
                     "**🌐 Website:** Coming soon...\n"
                 ),
-                color=discord.Color.green()
+                color=discord.Color.blue()
             )
-            embed.set_footer(text="🔍 Scanning roles to avoid setup issues...")
+            embed.set_footer(text="🔍 Confirming roles to avoid setup issues...")
         await channel.send(embed=embed)
+
+@bot.command(name="idioma", aliases= ["Idioma", "IDIOMA", "language", "Language", "LANGUAGE"])
+async def language_command(ctx):
+    guild = ctx.guild
+
+    if not ctx.channel.permissions_for(guild.me).send_messages:
+        return
+    
+    embed = discord.Embed(
+        title="**🌎 Choose your language | Escolha seu idioma**",
+        description="React with the 🇺🇸 emoji for **English** or/ou reaja com o emoji 🇧🇷 para **Português (BR)**",
+        color=discord.Color.greyple()
+    )
+    embed.set_footer(text="🔍 Detecting roles automatically... / Detectando cargos automaticamente...")
+
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🇺🇸")
+    await message.add_reaction("🇧🇷")
+
+    if str(guild.id) in language_data:
+        del language_data[str(guild.id)]
+        with open(LANGUAGE_FILE, "w") as f:
+            json.dump(language_data, f, indent=4)
+
 
 bot.run(TOKEN)
