@@ -101,3 +101,26 @@ def get_about_embed(language):
         )
         embed.set_footer(text="🔐 Psst... have you tried the !Dev command?")
     return embed
+
+def get_functions_embed(language):
+    if language == "pt":
+        embed = discord.Embed(
+            title="⛔ Em Desenvolvimento!",
+            description=(
+                "Recurso em fase de criação. Como o projeto está sempre em expansão, "
+                "a lista final de comandos para os usuários será listada em breve..."
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="💡 Outra alternativa é utilizar o `!help` nativo dos bots...")
+    else:
+        embed = discord.Embed(
+            title="⛔ Under Development!",
+            description=(
+                "This feature is still being built. Since the project is always expanding, "
+                "the final list of user commands will be listed soon..."
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="💡 You can also use the native `!help` command of bots...")
+    return embed

@@ -6,7 +6,8 @@ from embed import (
     get_language_embed,
     get_greeting_embed,
     get_setup_embed,
-    get_about_embed
+    get_about_embed,
+    get_functions_embed
 )
 
 intents = discord.Intents.default()
@@ -121,5 +122,14 @@ async def sobre(ctx):
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+
+@bot.command(name= "funções", aliases=["Funções", "FUNÇÕES", "functions", "Functions", "FUNCTIONS"])
+async def sobre(ctx):
+    idioma = obter_idioma(ctx.guild.id)
+    embed = get_functions_embed(idioma)
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+
 
 bot.run(TOKEN)
