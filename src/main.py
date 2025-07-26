@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from config import TOKEN, PREFIX
-from discord.ui import View, Button
 import json
 from embed import (
     get_language_embed,
@@ -19,6 +18,8 @@ intents.members = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 mensagem_idioma_id = {}
+mensagem_voltar_ids = {}
+resposta_enviada = set()
 
 def carregar_idiomas():
     try:
@@ -60,7 +61,6 @@ async def on_guild_join(guild):
             message = await channel.send(embed=embed)
             await message.add_reaction("🇺🇸")
             await message.add_reaction("🇧🇷")
-
             mensagem_idioma_id[str(guild.id)] = message.id
             break
 
@@ -70,23 +70,34 @@ async def on_raw_reaction_add(payload):
         return
 
     guild_id = str(payload.guild_id)
-    message_id = mensagem_idioma_id.get(guild_id)
+    message_id = payload.message_id
+    canal = bot.get_channel(payload.channel_id)
 
-    if payload.message_id != message_id:
+    idioma_msg_id = mensagem_idioma_id.get(guild_id)
+    if message_id == idioma_msg_id:
+        if guild_id in resposta_enviada:
+            return
+
+        if payload.emoji.name == "🇧🇷":
+            definir_idioma(guild_id, "pt")
+        elif payload.emoji.name == "🇺🇸":
+            definir_idioma(guild_id, "en")
+        else:
+            return
+
+        idioma = obter_idioma(guild_id)
+        embed = get_greeting_embed(idioma)
+        await canal.send(embed=embed)
+
+        resposta_enviada.add(guild_id)
         return
 
-    if payload.emoji.name == "🇧🇷":
-        definir_idioma(guild_id, "pt")
-    elif payload.emoji.name == "🇺🇸":
-        definir_idioma(guild_id, "en")
-    else:
+    voltar_msg_id = mensagem_voltar_ids.get(guild_id)
+    if message_id == voltar_msg_id and payload.emoji.name == "🔙":
+        idioma = obter_idioma(guild_id)
+        embed = get_setup_embed(idioma)
+        await canal.send(embed=embed)
         return
-
-    guild = bot.get_guild(payload.guild_id)
-    channel = bot.get_channel(payload.channel_id)
-    idioma = obter_idioma(guild_id)
-    embed = get_greeting_embed(idioma)
-    await channel.send(embed=embed)
 
 @bot.command(name="setup", aliases=["Setup", "SETUP"])
 async def setup(ctx):
@@ -100,13 +111,15 @@ async def idioma(ctx):
     message = await ctx.send(embed=embed)
     await message.add_reaction("🇺🇸")
     await message.add_reaction("🇧🇷")
-
     mensagem_idioma_id[str(ctx.guild.id)] = message.id
+    resposta_enviada.discard(str(ctx.guild.id))
 
 @bot.command(name="sobre", aliases=["Sobre", "SOBRE", "about", "About", "ABOUT"])
 async def sobre(ctx):
     idioma = obter_idioma(ctx.guild.id)
     embed = get_about_embed(idioma)
-    await ctx.send(embed=embed)
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
 bot.run(TOKEN)
