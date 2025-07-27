@@ -7,7 +7,9 @@ from embed import (
     get_greeting_embed,
     get_setup_embed,
     get_about_embed,
-    get_functions_embed
+    get_functions_embed,
+    get_roles_embed,
+    get_edit_embed
 )
 
 intents = discord.Intents.default()
@@ -124,12 +126,27 @@ async def sobre(ctx):
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
 @bot.command(name= "funções", aliases=["Funções", "FUNÇÕES", "functions", "Functions", "FUNCTIONS"])
-async def sobre(ctx):
+async def funções(ctx):
     idioma = obter_idioma(ctx.guild.id)
     embed = get_functions_embed(idioma)
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
+@bot.command(name="verificar", aliases=["Verificar", "VERIFICAR", "check", "Check", "CHECK"])
+async def verificar(ctx):
+    idioma = obter_idioma(ctx.guild.id)
+    embed = get_roles_embed(ctx.guild.roles, idioma)
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+
+@bot.command(name="editar", aliases=["Editar", "EDITAR", "edit", "Edit", "EDIT"])
+async def editar(ctx):
+    idioma = obter_idioma(ctx.guild.id)
+    embed = get_edit_embed(idioma)
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
 bot.run(TOKEN)

@@ -80,7 +80,7 @@ def get_about_embed(language):
             description=(
                 "O **ModEx** começou como um projeto simples de **aprendizado em Python**, criado por **Gleidson Gonzaga**, mais conhecido como **Zev Lonewolf**, com o objetivo de tornar seu servidor de RPG **mais versátil** — alternando facilmente entre um ambiente imersivo e outro mais casual.\n\n"
                 "Na sua primeira versão, o bot já era capaz de **alternar entre dois modos** distintos, mas de forma **bastante limitada**. Desde então, Zev tem trabalhado com carinho para transformar o ModEx em algo **flexível e útil para qualquer servidor**.\n\n"
-                "**🌟 Se quiser apoiar, siga o desenvolvedor ou dê uma estrela no projeto!**\n"
+                "**🌟 Se quiser apoiar, siga o desenvolvedor e dê uma estrela no projeto!**\n"
                 "- [GitHub de Zev Lonewolf](https://github.com/Zev-Lonewolf)\n"
                 "- [Repositório do ModEx](https://github.com/Zev-Lonewolf/ModEx_DiscordBot)"
             ),
@@ -93,7 +93,7 @@ def get_about_embed(language):
             description=(
                 "**ModEx** started as a simple **Python learning project**, created by **Gleidson Gonzaga**, also known as **Zev Lonewolf**. It was designed to make his RPG server **more versatile** — allowing quick switches between an immersive setting and a more casual one.\n\n"
                 "In its first version, the bot could already **toggle between two distinct modes**, but in a **very limited way**. Since then, Zev has been carefully evolving ModEx into something **flexible and useful for any server**.\n\n"
-                "**🌟 If you'd like to support, follow the developer or star the project!**\n"
+                "**🌟 If you'd like to support, follow the developer and star the project!**\n"
                 "- [Zev Lonewolf’s GitHub](https://github.com/Zev-Lonewolf)\n"
                 "- [ModEx GitHub Repository](https://github.com/Zev-Lonewolf/ModEx_DiscordBot)"
             ),
@@ -112,7 +112,7 @@ def get_functions_embed(language):
             ),
             color=discord.Color.red()
         )
-        embed.set_footer(text="💡 Outra alternativa é utilizar o `!help` nativo dos bots...")
+        embed.set_footer(text="💡 Outra alternativa é utilizar o !help nativo dos bots...")
     else:
         embed = discord.Embed(
             title="⛔ Under Development!",
@@ -122,5 +122,62 @@ def get_functions_embed(language):
             ),
             color=discord.Color.red()
         )
-        embed.set_footer(text="💡 You can also use the native `!help` command of bots...")
+        embed.set_footer(text="💡 You can also use the native !help command of bots...")
+    return embed
+
+def get_roles_embed(roles, language):
+    filtered_roles = [role for role in roles if role.name != "@everyone"]
+
+    if language == "pt":
+        if filtered_roles:
+            cargos_texto = "\n".join([f"- **{role.name}**: ({role.id})" for role in filtered_roles])
+        else:
+            cargos_texto = "❌ Nenhum cargo encontrado. Utilize o comando `!Manual` para adicionar manualmente."
+
+        modos_texto = "🚧 O sistema de modos ainda está em desenvolvimento. Em breve será possível criá-los com o comando !Criar."
+
+        embed = discord.Embed(
+            title="📌 Cargos e modos do servidor",
+            color=discord.Color.blurple()
+        )
+        embed.add_field(name="**Cargos encontrados:**", value=cargos_texto, inline=False)
+        embed.add_field(name="**Modos encontrados:**", value=modos_texto, inline=False)
+        embed.set_footer(text="📇 Organize seus cargos e modos com clareza para uma melhor gestão.")
+
+    else:
+        if filtered_roles:
+            roles_text = "\n".join([f"- **{role.name}**: ({role.id})" for role in filtered_roles])
+        else:
+            roles_text = "❌ No roles found. Use the `!Manual` command to add them manually."
+
+        modes_text = "🚧 Mode system is under development. Soon you'll be able to create them using the !Create command."
+
+        embed = discord.Embed(
+            title="📌 Server Roles and Modes",
+            color=discord.Color.blurple()
+        )
+        embed.add_field(name="**Roles found:**", value=roles_text, inline=False)
+        embed.add_field(name="**Modes found:**", value=modes_text, inline=False)
+        embed.set_footer(text="📇 Keep your roles and modes organized for better server management.")
+    return embed
+
+def get_edit_embed(language):
+    if language == "pt":
+        embed = discord.Embed(
+            title="⛔ Em Desenvolvimento!",
+            description=(
+                "Este recurso ainda está sendo desenvolvido. Aguarde a finalização da etapa de criação."
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="✨ Ajude o dev com uma estrela no GitHub! Confere lá em !Sobre")
+    else:
+        embed = discord.Embed(
+            title="⛔ Under Development!",
+            description=(
+                "Still cooking! We’re finishing the creation part first"
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="✨ Support the dev with a GitHub star! Check it out in !About")
     return embed
