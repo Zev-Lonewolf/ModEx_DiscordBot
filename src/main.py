@@ -52,6 +52,15 @@ def definir_idioma(guild_id, idioma):
 async def preparar_contexto(ctx):
     ctx.language = obter_idioma(ctx.guild.id)
 
+async def limpar_mensagens(canal, autor1, autor2, quantidade=15):
+    def check(msg):
+        return msg.author == autor1 or msg.author == autor2
+
+    try:
+        await canal.purge(limit=quantidade, check=check)
+    except Exception as e:
+        print(f"Erro ao limpar mensagens: {e}")
+
 @bot.event
 async def on_ready():
     print(f"Usuário conectado: {bot.user}!")
@@ -69,7 +78,7 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    if payload.member.bot:
+    if payload.user_id == bot.user.id:
         return
 
     guild_id = str(payload.guild_id)
@@ -90,8 +99,14 @@ async def on_raw_reaction_add(payload):
 
         idioma = obter_idioma(guild_id)
         embed = get_greeting_embed(idioma)
-        await canal.send(embed=embed)
 
+        try:
+            msg = await canal.fetch_message(message_id)
+            await msg.delete()
+        except Exception as e:
+            print(f"Erro ao apagar mensagem de idioma: {e}")
+
+        await canal.send(embed=embed)
         resposta_enviada.add(guild_id)
         return
 
@@ -99,17 +114,35 @@ async def on_raw_reaction_add(payload):
     if message_id == voltar_msg_id and payload.emoji.name == "🔙":
         idioma = obter_idioma(guild_id)
         embed = get_setup_embed(idioma)
+
+        await limpar_mensagens(canal, bot.user, bot.user)
+        try:
+            msg = await canal.fetch_message(message_id)
+            await msg.delete()
+        except Exception as e:
+            print(f"Erro ao apagar mensagem de voltar: {e}")
+
         await canal.send(embed=embed)
         return
 
+@bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
+async def limpar(ctx):
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
+
 @bot.command(name="setup", aliases=["Setup", "SETUP"])
 async def setup(ctx):
+    await ctx.message.delete()
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
+
     idioma = obter_idioma(ctx.guild.id)
     embed = get_setup_embed(idioma)
     await ctx.send(embed=embed)
 
 @bot.command(name="idioma", aliases=["Idioma", "IDIOMA", "language", "Language", "LANGUAGE"])
 async def idioma(ctx):
+    await ctx.message.delete()
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
+
     embed = get_language_embed()
     message = await ctx.send(embed=embed)
     await message.add_reaction("🇺🇸")
@@ -119,32 +152,40 @@ async def idioma(ctx):
 
 @bot.command(name="sobre", aliases=["Sobre", "SOBRE", "about", "About", "ABOUT"])
 async def sobre(ctx):
+    await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
     embed = get_about_embed(idioma)
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
-@bot.command(name= "funções", aliases=["Funções", "FUNÇÕES", "functions", "Functions", "FUNCTIONS"])
+@bot.command(name="funções", aliases=["Funções", "FUNÇÕES", "functions", "Functions", "FUNCTIONS"])
 async def funções(ctx):
+    await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
     embed = get_functions_embed(idioma)
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
 @bot.command(name="verificar", aliases=["Verificar", "VERIFICAR", "check", "Check", "CHECK"])
 async def verificar(ctx):
+    await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
     embed = get_roles_embed(ctx.guild.roles, idioma)
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
 
 @bot.command(name="editar", aliases=["Editar", "EDITAR", "edit", "Edit", "EDIT"])
 async def editar(ctx):
+    await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
     embed = get_edit_embed(idioma)
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
