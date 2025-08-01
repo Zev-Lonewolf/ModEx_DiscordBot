@@ -105,7 +105,7 @@ def get_about_embed(language):
 def get_functions_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="⛔ Em Desenvolvimento!",
+            title="**⛔ Em Desenvolvimento!**",
             description=(
                 "Recurso em fase de criação. Como o projeto está sempre em expansão, "
                 "a lista final de comandos para os usuários será listada em breve..."
@@ -115,7 +115,7 @@ def get_functions_embed(language):
         embed.set_footer(text="💡 Outra alternativa é utilizar o !help nativo dos bots...")
     else:
         embed = discord.Embed(
-            title="⛔ Under Development!",
+            title="**⛔ Under Development!**",
             description=(
                 "This feature is still being built. Since the project is always expanding, "
                 "the final list of user commands will be listed soon..."
@@ -164,7 +164,7 @@ def get_roles_embed(roles, language):
 def get_edit_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="⛔ Em Desenvolvimento!",
+            title="**⛔ Em Desenvolvimento!**",
             description=(
                 "Este recurso ainda está sendo desenvolvido. Aguarde a finalização da etapa de criação."
             ),
@@ -173,7 +173,7 @@ def get_edit_embed(language):
         embed.set_footer(text="✨ Ajude o dev com uma estrela no GitHub! Confere lá em !Sobre")
     else:
         embed = discord.Embed(
-            title="⛔ Under Development!",
+            title="**⛔ Under Development!**",
             description=(
                 "Still cooking! We’re finishing the creation part first"
             ),
@@ -224,4 +224,31 @@ def get_create_embed(roles, language):
     embed = discord.Embed(title=titulo, description=descricao, color=discord.Color.yellow())
     embed.add_field(name="**Cargos encontrados:**", value=cargos_texto, inline=False)
     embed.set_footer(text=rodape)
+    return embed
+
+def get_initial_create_embed(language):
+    if language == "pt":
+        embed = discord.Embed(
+            title="🚧 Criação de Modo (etapa 1 de 5)",
+            description=(
+                "Qual será o nome do seu modo?\n\n"
+                "📌 _Exemplos: Eventos, Staff, AcessoVIP..._\n"
+                "✍️ _Responda com:_ `#NomeDoModo`\n\n"
+                "⚠️ Evite nomes muito longos ou com símbolos estranhos."
+            ),
+            color=discord.Color.teal()
+        )
+        embed.set_footer(text="Use # antes do nome para confirmar. Ex: #Eventos")
+    else:
+        embed = discord.Embed(
+            title="🚧 Mode Creation (step 1 of 5)",
+            description=(
+                "What will be the name of your mode?\n\n"
+                "📌 _Examples: Events, Staff, VIPAccess..._\n"
+                "✍️ _Reply with:_ `#ModeName`\n\n"
+                "⚠️ Avoid very long names or strange symbols."
+            ),
+            color=discord.Color.teal()
+        )
+        embed.set_footer(text="Use # before the name to confirm. Ex: #Events")
     return embed

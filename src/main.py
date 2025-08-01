@@ -1,7 +1,10 @@
 import discord
 from discord.ext import commands
 from config import TOKEN, PREFIX
+from config import CAMINHO_IDIOMAS
+from utils.modos import salvar_nome_modo
 import json
+import os
 from embed import (
     get_language_embed,
     get_greeting_embed,
@@ -10,7 +13,8 @@ from embed import (
     get_functions_embed,
     get_roles_embed,
     get_edit_embed,
-    get_create_embed
+    get_create_embed,
+    get_initial_create_embed
 )
 
 intents = discord.Intents.default()
@@ -23,17 +27,19 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 mensagem_idioma_id = {}
 mensagem_voltar_ids = {}
+mensagem_avancar_ids = {}
+criando_modo = {}
 resposta_enviada = set()
 
 def carregar_idiomas():
     try:
-        with open("idiomas.json", "r", encoding="utf-8") as f:
+        with open(CAMINHO_IDIOMAS, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         return {}
 
 def salvar_idiomas(dados):
-    with open("idiomas.json", "w", encoding="utf-8") as f:
+    with open(CAMINHO_IDIOMAS, "w", encoding="utf-8") as f:
         json.dump(dados, f, indent=4)
 
 idiomas = carregar_idiomas()
@@ -126,6 +132,43 @@ async def on_raw_reaction_add(payload):
         await canal.send(embed=embed)
         return
 
+    avancar_msg_id = mensagem_avancar_ids.get(guild_id)
+    if message_id == avancar_msg_id and payload.emoji.name == "✅":
+        idioma = obter_idioma(guild_id)
+        roles = (await bot.fetch_guild(payload.guild_id)).roles
+        embed = get_initial_create_embed(idioma)
+
+        await limpar_mensagens(canal, bot.user, bot.user)
+        try:
+            msg = await canal.fetch_message(message_id)
+            await msg.delete()
+        except Exception as e:
+            print(f"Erro ao apagar mensagem de avançar: {e}")
+
+        await canal.send(embed=embed)
+        return
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    if criando_modo.get(message.author.id) == "esperando_nome":
+        if message.content.startswith("#"):
+            nome_modo = message.content[1:].strip()
+
+            if len(nome_modo) < 2 or len(nome_modo) > 15:
+                await message.channel.send("❌ Nome inválido! Use entre 2 e 15 caracteres.")
+                return
+
+            salvar_nome_modo(message.guild.id, message.author.id, nome_modo)
+
+            await message.channel.send(f"✅ Nome **{nome_modo}** salvo com sucesso!")
+            criando_modo[message.author.id] = "esperando_cargo"
+        else:
+            await message.add_reaction("❓")
+    await bot.process_commands(message)
+
 @bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
 async def limpar(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
@@ -200,5 +243,8 @@ async def criar(ctx):
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
     mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+    await message.add_reaction("✅")
+    mensagem_avancar_ids[str(ctx.guild.id)]= message.id
+    criando_modo[ctx.author.id] = "esperando_nome"
 
 bot.run(TOKEN)
