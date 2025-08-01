@@ -9,7 +9,8 @@ from embed import (
     get_about_embed,
     get_functions_embed,
     get_roles_embed,
-    get_edit_embed
+    get_edit_embed,
+    get_create_embed
 )
 
 intents = discord.Intents.default()
@@ -185,6 +186,16 @@ async def editar(ctx):
     await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
     embed = get_edit_embed(idioma)
+    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+
+@bot.command(name="criar", aliases=["Criar", "CRIAR", "create", "Create", "CREATE"])
+async def criar(ctx):
+    await ctx.message.delete()
+    idioma = obter_idioma(ctx.guild.id)
+    embed = get_create_embed(ctx.guild.roles, idioma)
     await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
     message = await ctx.send(embed=embed)
     await message.add_reaction("🔙")
