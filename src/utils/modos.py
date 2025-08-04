@@ -27,3 +27,7 @@ def salvar_nome_modo(server_id, user_id, nome_modo):
 
     dados[server_id][user_id]["nome"] = nome_modo
     salvar_modos(dados)
+
+def salvar_json(caminho, dados):
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=4)
