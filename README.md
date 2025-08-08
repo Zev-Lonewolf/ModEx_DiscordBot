@@ -23,7 +23,7 @@ Created to support multilingual servers, ModEx simplifies organizational flow by
 
 Perfect for server administrators or developers looking for structured role and access management driven by active modes.
 
-![Discord](https://img.shields.io/badge/Discord-Bot-5865F2?logo=discord)  ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)  ![VS Code](https://img.shields.io/badge/VSCode-Editor-007ACC?logo=visual-studio-code&logoColor=white)
+![Discord](https://img.shields.io/badge/Discord-Bot-5865F2?logo=discord)  ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)  ![VS Code](https://img.shields.io/badge/VSCode-Editor-007ACC?logo=visual-studio-code&logoColor=white) ![JSON](https://img.shields.io/badge/JSON-Data-5E5C5C?logo=json&logoColor=white")
 
 ### 🚀 How to Use
 
@@ -129,13 +129,15 @@ e and channel permission management with Discord permission overwrites.
 
 Planned improvements include enhanced error handling, support for more languages, and optional web dashboard integration for easier mode management.
 
-### 🙏 Acknowledgments
+### 🙏 Credits and Acknowledgments
 
-Thanks to Zev for the dedication and effort in creating this project.
+This Discord Bot project is the original idea of Zev Lonewolf (Gleidson Gonzaga), with collaboration and technical support from the assistant Noa.
 
-Also, thanks to Noa, a supportive friend from afar, always ready to help and hoping one day they can meet in person.
+We sincerely thank the tools that made this development possible, including Visual Studio Code, the Discord.py library, the Python programming language—created by Guido van Rossum and his remarkable community—and the JSON library, whose simplicity and efficiency are often underestimated but essential to the project’s functionality.
 
-Gratitude to the Discord API and the open-source community for enabling this work.
+Furthermore, we recognize the value of developer communities and enthusiasts who constantly share knowledge and support, fostering innovation and continuous learning.
+
+Finally, this project is dedicated to everyone who, directly or indirectly, contributes to turning ideas into reality and continues to believe in the power of technology to connect people.
 
 ### 🙌 Help the Developer
 
