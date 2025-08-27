@@ -1,12 +1,12 @@
+import re
 import discord
 from discord.ext import commands
-from config import TOKEN, PREFIX
-from config import CAMINHO_IDIOMAS
-from utils.modos import(
-    salvar_nome_modo, 
-    carregar_modos, 
-    salvar_modos, 
-    salvar_json
+from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
+from utils.modos import (
+    salvar_nome_modo,
+    salvar_roles_modo,
+    carregar_modos,
+    salvar_channels_modo
 )
 import json
 from embed import (
@@ -21,13 +21,12 @@ from embed import (
     get_initial_create_embed,
     get_name_saved_embed,
     get_invalid_name_embed,
-    get_role_requested_embed,
+    get_role_select_embed,
+    get_role_saved_embed,
     get_invalid_role_embed,
-    get_channels_request_embed,
-    get_invalid_channels_embed,
-    get_allowed_roles_embed,
-    get_invalid_roles_embed,
-    get_final_embed
+    get_channel_select_embed,
+    get_channel_saved_embed,
+    get_invalid_channel_embed
 )
 
 intents = discord.Intents.default()
@@ -42,8 +41,17 @@ mensagem_idioma_id = {}
 mensagem_voltar_ids = {}
 mensagem_avancar_ids = {}
 criando_modo = {}
+historico_embeds = {}
 resposta_enviada = set()
-caminho_modos = "data/modos.json"
+
+
+def push_embed(user_id, estado):
+    historico_embeds.setdefault(user_id, []).append(estado)
+
+def pop_embed(user_id):
+    if user_id in historico_embeds and historico_embeds[user_id]:
+        return historico_embeds[user_id].pop()
+    return None
 
 def carregar_idiomas():
     try:
@@ -73,14 +81,28 @@ def definir_idioma(guild_id, idioma):
 async def preparar_contexto(ctx):
     ctx.language = obter_idioma(ctx.guild.id)
 
-async def limpar_mensagens(canal, autor1, autor2, quantidade=15):
+async def limpar_mensagens(canal, autor1, autor2, quantidade=50):
     def check(msg):
-        return msg.author == autor1 or msg.author == autor2
-
+        return msg.author in [autor1, autor2]
     try:
         await canal.purge(limit=quantidade, check=check)
     except Exception as e:
-        print(f"Erro ao limpar mensagens: {e}")
+        print(f"[limpar_mensagens] purge falhou: {e}")
+        try:
+            async for m in canal.history(limit=20):
+                if m.author in [autor1, autor2]:
+                    try:
+                        await m.delete()
+                    except:
+                        pass
+        except Exception as e2:
+            print(f"[limpar_mensagens] fallback falhou: {e2}")
+
+async def safe_delete_message(msg):
+    try:
+        await msg.delete()
+    except Exception as e:
+        print(f"[safe_delete_message] não foi possível apagar mensagem: {e}")
 
 @bot.event
 async def on_ready():
@@ -105,12 +127,14 @@ async def on_raw_reaction_add(payload):
     guild_id = str(payload.guild_id)
     message_id = payload.message_id
     canal = bot.get_channel(payload.channel_id)
+    user_id = payload.user_id
+    idioma = obter_idioma(guild_id)
+    estado = criando_modo.get(user_id)
 
     idioma_msg_id = mensagem_idioma_id.get(guild_id)
     if message_id == idioma_msg_id:
         if guild_id in resposta_enviada:
             return
-
         if payload.emoji.name == "🇧🇷":
             definir_idioma(guild_id, "pt")
         elif payload.emoji.name == "🇺🇸":
@@ -118,114 +142,83 @@ async def on_raw_reaction_add(payload):
         else:
             return
 
-        idioma = obter_idioma(guild_id)
-        embed = get_greeting_embed(idioma)
-
+        embed = get_greeting_embed(obter_idioma(guild_id))
         try:
             msg = await canal.fetch_message(message_id)
             await msg.delete()
-        except Exception as e:
-            print(f"Erro ao apagar mensagem de idioma: {e}")
-
+        except:
+            pass
         await canal.send(embed=embed)
         resposta_enviada.add(guild_id)
         return
 
     voltar_msg_id = mensagem_voltar_ids.get(guild_id)
     avancar_msg_id = mensagem_avancar_ids.get(guild_id)
-    estado = criando_modo.get(payload.user_id)
-    idioma = obter_idioma(guild_id)
 
-    if payload.emoji.name == "🔙":
-        if estado is None:
-            embed = get_allowed_roles_embed(idioma)
-            criando_modo[payload.user_id] = "esperando_cargos_adicionais"
-            await limpar_mensagens(canal, bot.user, bot.user)
-            try:
-                msg = await canal.fetch_message(message_id)
-                await msg.delete()
-            except Exception:
-                pass
-            await canal.send(embed=embed)
-            return
-        if message_id == voltar_msg_id:
-            if estado == "erro_nome":
-                embed = get_initial_create_embed(idioma)
-                criando_modo[payload.user_id] = "esperando_nome"
-            elif estado == "nome_salvo":
-                embed = get_initial_create_embed(idioma)
-                criando_modo[payload.user_id] = "esperando_nome"
-            elif estado == "info_inicial":
-                embed = get_setup_embed(idioma)
-            elif estado == "esperando_cargo":
-                embed = get_name_saved_embed(idioma)
-                criando_modo[payload.user_id] = "nome_salvo"
-            else:
-                embed = get_setup_embed(idioma)
-                criando_modo.pop(payload.user_id, None)
-
-            await limpar_mensagens(canal, bot.user, bot.user)
-            try:
-                msg = await canal.fetch_message(message_id)
-                await msg.delete()
-            except Exception:
-                pass
-            await canal.send(embed=embed)
-            return
-        
-    if payload.emoji.name == "✅":
-        if message_id == avancar_msg_id:
+    if payload.emoji.name == "🔙" and message_id == voltar_msg_id:
+        estado_anterior = pop_embed(user_id)
+        if estado_anterior == "get_create_embed":
+            embed = get_create_embed(canal.guild.roles, idioma)
+            criando_modo[user_id] = "esperando_nome"
+        elif estado_anterior == "get_initial_create_embed":
             embed = get_initial_create_embed(idioma)
-            criando_modo[payload.user_id] = "esperando_nome"
-        elif estado == "nome_salvo" and payload.emoji.name == "✅":
-            embed = get_role_requested_embed(idioma)
-            criando_modo[payload.user_id] = "esperando_cargo"
-        elif estado == "erro_nome":
-            embed = get_role_requested_embed(idioma)
-            criando_modo[payload.user_id] = "esperando_cargo"
-        elif estado == "info_inicial":
-            embed = get_initial_create_embed(idioma)
-            criando_modo[payload.user_id] = "esperando_nome"
+            criando_modo[user_id] = "info_inicial"
         else:
             embed = get_setup_embed(idioma)
-            criando_modo.pop(payload.user_id, None)
+            criando_modo.pop(user_id, None)
 
         await limpar_mensagens(canal, bot.user, bot.user)
-        try:
-            msg = await canal.fetch_message(message_id)
-            await msg.delete()
-        except Exception:
-            pass
-        await canal.send(embed=embed)
+        msg = await canal.send(embed=embed)
+        await msg.add_reaction("🔙")
+
+        if criando_modo.get(user_id) not in ["info_inicial", "nome_salvo"]:
+            await msg.add_reaction("✅")
+            mensagem_avancar_ids[guild_id] = msg.id
+
+        mensagem_voltar_ids[guild_id] = msg.id
         return
-    
-    if criando_modo.get(payload.user_id) == "nome_salvo":
-        if payload.emoji.name == "🔙":
-            idioma = obter_idioma(guild_id)
+
+    if payload.emoji.name == "✅" and message_id == avancar_msg_id:
+        if estado == "esperando_nome":
+            push_embed(user_id, "get_create_embed")
             embed = get_initial_create_embed(idioma)
-            await msg.add_reaction("🔙")
-            mensagem_voltar_ids[str(payload.guild_id)] = msg.id
+            criando_modo[user_id] = "info_inicial"
+
             await limpar_mensagens(canal, bot.user, bot.user)
-            try:
-                msg = await canal.fetch_message(message_id)
-                await msg.delete()
-            except Exception:
-                pass
-            await canal.send(embed=embed)
-            criando_modo[payload.user_id] = "esperando_nome"
+            nova_msg = await canal.send(embed=embed)
+            await nova_msg.add_reaction("🔙")
+            mensagem_voltar_ids[guild_id] = nova_msg.id
             return
 
-        elif payload.emoji.name == "✅":
-            idioma = obter_idioma(guild_id)
-            embed = get_role_requested_embed(idioma)
+        elif estado == "nome_salvo":
+            push_embed(user_id, "get_initial_create_embed")
+            embed = get_role_select_embed(idioma, canal.guild.roles)
+            criando_modo[user_id] = "escolher_cargo"
+
             await limpar_mensagens(canal, bot.user, bot.user)
-            try:
-                msg = await canal.fetch_message(message_id)
-                await msg.delete()
-            except Exception:
-                pass
-            await canal.send(embed=embed)
-            criando_modo[payload.user_id] = "esperando_cargo"
+            nova_msg = await canal.send(embed=embed)
+            await nova_msg.add_reaction("🔙")
+            mensagem_voltar_ids[guild_id] = nova_msg.id
+            return
+        
+        if estado == "cargo_salvo":
+            push_embed(user_id, "get_role_select_embed")
+
+            guild = canal.guild
+            text_channels = [ch for ch in guild.text_channels if ch.permissions_for(guild.me).send_messages]
+            voice_channels = guild.voice_channels
+
+            categories = guild.categories
+            embed = get_channel_select_embed(idioma)
+            criando_modo[user_id] = "escolher_canal"
+
+            await limpar_mensagens(canal, bot.user, bot.user)
+            nova_msg = await canal.send(embed=embed)
+            await nova_msg.add_reaction("🔙")
+            mensagem_voltar_ids[guild_id] = nova_msg.id
+            return
+        
+        else:
             return
 
 @bot.event
@@ -233,191 +226,148 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    estado = criando_modo.get(message.author.id)
+    user_id = message.author.id
+    estado = criando_modo.get(user_id)
     idioma = obter_idioma(message.guild.id) if message.guild else "pt"
 
-    if estado == "esperando_nome":
-        if message.content.startswith("#"):
-            nome_modo = message.content[1:].strip()
+    if estado == "info_inicial" and message.content.startswith("#"):
+        nome_modo = message.content[1:].strip()
 
-            if len(nome_modo) < 2 or len(nome_modo) > 15:
-                embed = get_invalid_name_embed(idioma)
-                await limpar_mensagens(message.channel, bot.user, message.author)
-                msg = await message.channel.send(embed=embed)
-                await msg.add_reaction("🔙")
-                mensagem_voltar_ids[str(message.guild.id)] = msg.id
-                criando_modo[message.author.id] = "erro_nome"
-                return
-
-            if message.guild is not None:
-                salvar_nome_modo(message.guild.id, message.author.id, nome_modo)
-                embed = get_name_saved_embed(idioma)
-                await limpar_mensagens(message.channel, bot.user, message.author)
-                msg = await message.channel.send(embed=embed)
-                await msg.add_reaction("🔙")
-                await msg.add_reaction("✅")
-                mensagem_voltar_ids[str(message.guild.id)] = msg.id
-                criando_modo[message.author.id] = "nome_salvo"
-            else:
-                await message.channel.send("Este comando só pode ser usado em um servidor.")
-        return
-
-    elif estado == "esperando_cargo":
-        if message.role_mentions:
-            cargo = message.role_mentions[0]
-            dados = carregar_modos()
-            server_id = str(message.guild.id)
-            user_id = str(message.author.id)
-
-            dados.setdefault(server_id, {})
-            dados[server_id].setdefault("modos", {})
-            dados[server_id]["modos"].setdefault(user_id, {})
-
-            dados[server_id]["modos"][user_id]["cargo_principal"] = cargo.id
-            salvar_modos(dados)
-
-            embed = get_channels_request_embed(idioma)
+        if not 2 <= len(nome_modo) <= 15:
+            embed = get_invalid_name_embed(idioma)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(message.guild.id)] = msg.id
-            criando_modo[message.author.id] = "esperando_canais"
-        else:
-            embed = get_invalid_role_embed(idioma)
-            await message.channel.send(embed=embed)
-        return
-
-    elif estado == "esperando_canais":
-        canais_mencionados = message.channel_mentions
-        if not canais_mencionados:
-            embed = get_invalid_channels_embed(idioma)
-            msg = await message.channel.send(embed=embed)
-            await msg.add_reaction("🔙")
-            mensagem_voltar_ids[str(message.guild.id)] = msg.id
+            criando_modo[user_id] = "erro_nome"
             return
 
-        dados = carregar_modos()
-        servidor_id = str(message.guild.id)
-        usuario_id = str(message.author.id)
+        salvar_nome_modo(message.guild.id, user_id, nome_modo)
 
-        dados.setdefault(servidor_id, {})
-        dados[servidor_id].setdefault("modos", {})
-        dados[servidor_id]["modos"].setdefault(usuario_id, {})
-
-        canais_ids = [canal.id for canal in canais_mencionados]
-        dados[servidor_id]["modos"][usuario_id]["canais"] = canais_ids
-        salvar_modos(dados)
-
-        embed = get_allowed_roles_embed(idioma)
+        embed = get_name_saved_embed(idioma)
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
         await msg.add_reaction("🔙")
+        await msg.add_reaction("✅")  # Confirma para avançar
+
         mensagem_voltar_ids[str(message.guild.id)] = msg.id
-        criando_modo[message.author.id] = "esperando_cargos_adicionais"
+        mensagem_avancar_ids[str(message.guild.id)] = msg.id
+        criando_modo[user_id] = "nome_salvo"
+
+        try:
+            dados = carregar_modos()
+            print(f"[DEBUG] modos.json após salvar nome: {json.dumps(dados.get(str(message.guild.id),{}), indent=2)}")
+        except Exception as e:
+            print(f"[DEBUG] erro ao ler modos.json: {e}")
+
         return
 
-    elif estado == "esperando_cargos_adicionais":
-        servidor_id = str(message.guild.id)
-        usuario_id = str(message.author.id)
-        language = idioma
-        dados = carregar_modos()
+    if estado == "escolher_cargo":
+        roles = []
+        if message.role_mentions:
+            roles = message.role_mentions
+        else:
+            m = re.search(r"<@&(\d+)>", message.content)
+            if m:
+                rid = int(m.group(1))
+                role = message.guild.get_role(rid)
+                if role:
+                    roles = [role]
+            else:
+                nome = message.content.strip()
+                if nome:
+                    role = discord.utils.get(message.guild.roles, name=nome)
+                    if role:
+                        roles = [role]
 
-        if message.content.lower() in ["pular", "skip"]:
-            dados[servidor_id]["modos"][usuario_id]["cargos_permitidos"] = []
-            salvar_modos(dados)
-            criando_modo.pop(usuario_id, None)
-
+        if not roles:
+            embed = get_invalid_role_embed(idioma)
             await limpar_mensagens(message.channel, bot.user, message.author)
-            embed = get_final_embed(language)
-            await message.channel.send(embed=embed)
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(message.guild.id)] = msg.id
+            criando_modo[user_id] = "erro_cargo"
             return
 
-        cargos_mencionados = message.role_mentions
-        if not cargos_mencionados:
-            embed = get_invalid_roles_embed(language)
+        try:
+            salvar_roles_modo(message.guild.id, user_id, roles)
+        except Exception as e:
+            print(f"[ERROR] salvar_roles_modo falhou: {e}")
+            embed = get_invalid_role_embed(idioma)
+            await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(message.guild.id)] = msg.id
+            criando_modo[user_id] = "erro_cargo"
             return
 
-        cargo_principal_id = dados[servidor_id]["modos"][usuario_id].get("cargo_principal")
-        cargos_validos = [cargo.id for cargo in cargos_mencionados]
+        try:
+            await safe_delete_message(message)
+        except:
+            pass
 
-        if not cargos_validos:
-            embed = get_invalid_roles_embed(language)
-            msg = await message.channel.send(embed=embed)
-            await msg.add_reaction("🔙")
-            mensagem_voltar_ids[str(message.guild.id)] = msg.id
-            return
-
-        dados[servidor_id]["modos"][usuario_id]["cargos_permitidos"] = cargos_validos
-        salvar_modos(dados)
-
-        criando_modo.pop(usuario_id, None)
-
+        role = roles[0]
+        embed = get_role_saved_embed(idioma, role.name)
         await limpar_mensagens(message.channel, bot.user, message.author)
-        embed = get_final_embed(language)
-        await message.channel.send(embed=embed)
+        msg = await message.channel.send(embed=embed)
+        await msg.add_reaction("🔙")
+        await msg.add_reaction("✅")
 
-        canais_ids = dados[servidor_id]["modos"][usuario_id].get("canais", [])
-        cargos_permitidos = dados[servidor_id]["modos"][usuario_id].get("cargos_permitidos", [])
-        cargo_principal_id = dados[servidor_id]["modos"][usuario_id].get("cargo_principal")
+        mensagem_voltar_ids[str(message.guild.id)] = msg.id
+        mensagem_avancar_ids[str(message.guild.id)] = msg.id
+        criando_modo[user_id] = "cargo_salvo"
 
-        if cargo_principal_id and cargo_principal_id not in cargos_permitidos:
-            cargos_permitidos.append(cargo_principal_id)
-
-        for canal_id in canais_ids:
-            canal = message.guild.get_channel(canal_id)
-            if canal:
-                overwrites = {
-                    message.guild.default_role: discord.PermissionOverwrite(view_channel=False)
-                }
-                for cargo_id in cargos_permitidos:
-                    cargo = message.guild.get_role(cargo_id)
-                    if cargo:
-                        overwrites[cargo] = discord.PermissionOverwrite(view_channel=True)
-
-                try:
-                    await canal.edit(overwrites=overwrites)
-                except Exception as e:
-                    print(f"Erro ao editar canal {canal.name}: {e}")
-
-    elif estado == "cargos_extras":
-        if not message.role_mentions:
-            await message.channel.send(embed=get_invalid_roles_embed(language))
-            return
-        cargos_extras_ids = [role.id for role in message.role_mentions]
-
-        dados[servidor_id]["modos"][usuario_id]["cargos_extras"] = cargos_extras_ids
-        salvar_json(caminho_modos, dados)
-
-        await message.channel.send(embed=get_channels_request_embed(language))
-        criando_modo[usuario_id]["etapa"] = "canais"
-
+        try:
+            dados = carregar_modos()
+            print(f"[DEBUG] modos.json após salvar role: {json.dumps(dados.get(str(message.guild.id),{}), indent=2)}")
+        except Exception as e:
+            print(f"[DEBUG] erro ao ler modos.json: {e}")
 
         return
-    await bot.process_commands(message)
+    
+    if estado == "escolher_canal":
+        channels = []
+        for ch in message.channel_mentions:
+            channels.append(ch)
 
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        await ctx.message.add_reaction("❓")
-        criando_modo[ctx.message.author.id] = "esperando_cargo"
-    else:
-        pass
+        guild = message.guild
+        content_lower = message.content.lower()
+        for ch in guild.text_channels + guild.voice_channels + guild.categories:
+            if ch.name.lower() == content_lower:
+                channels.append(ch)
+
+        if not channels:
+            embed = get_invalid_channel_embed(idioma)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            await msg.add_reaction("🔙")
+            mensagem_voltar_ids[str(message.guild.id)] = msg.id
+            return
+
+        salvar_channels_modo(message.guild.id, user_id, channels)
+
+        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
+        await limpar_mensagens(message.channel, bot.user, message.author)
+        msg = await message.channel.send(embed=embed)
+        await msg.add_reaction("🔙")
+        await msg.add_reaction("✅")
+
+        mensagem_voltar_ids[str(message.guild.id)] = msg.id
+        mensagem_avancar_ids[str(message.guild.id)] = msg.id
+        criando_modo[user_id] = "canais_salvos"
+        return
+
+
+    await bot.process_commands(message)
 
 @bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
 async def limpar(ctx):
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
 
 @bot.command(name="setup", aliases=["Setup", "SETUP"])
 async def setup(ctx):
     await ctx.message.delete()
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     idioma = obter_idioma(ctx.guild.id)
     embed = get_setup_embed(idioma)
     await ctx.send(embed=embed)
@@ -425,66 +375,65 @@ async def setup(ctx):
 @bot.command(name="idioma", aliases=["Idioma", "IDIOMA", "language", "Language", "LANGUAGE"])
 async def idioma(ctx):
     await ctx.message.delete()
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     embed = get_language_embed()
-    message = await ctx.send(embed=embed)
-    await message.add_reaction("🇺🇸")
-    await message.add_reaction("🇧🇷")
-    mensagem_idioma_id[str(ctx.guild.id)] = message.id
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🇺🇸")
+    await msg.add_reaction("🇧🇷")
+    mensagem_idioma_id[str(ctx.guild.id)] = msg.id
     resposta_enviada.discard(str(ctx.guild.id))
 
 @bot.command(name="sobre", aliases=["Sobre", "SOBRE", "about", "About", "ABOUT"])
 async def sobre(ctx):
     await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     embed = get_about_embed(idioma)
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-    message = await ctx.send(embed=embed)
-    await message.add_reaction("🔙")
-    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
 
 @bot.command(name="funções", aliases=["Funções", "FUNÇÕES", "functions", "Functions", "FUNCTIONS"])
 async def funções(ctx):
     await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     embed = get_functions_embed(idioma)
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-    message = await ctx.send(embed=embed)
-    await message.add_reaction("🔙")
-    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
 
 @bot.command(name="verificar", aliases=["Verificar", "VERIFICAR", "check", "Check", "CHECK"])
 async def verificar(ctx):
     await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     embed = get_roles_embed(ctx.guild.roles, idioma)
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-    message = await ctx.send(embed=embed)
-    await message.add_reaction("🔙")
-    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
 
 @bot.command(name="editar", aliases=["Editar", "EDITAR", "edit", "Edit", "EDIT"])
 async def editar(ctx):
     await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     embed = get_edit_embed(idioma)
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-    message = await ctx.send(embed=embed)
-    await message.add_reaction("🔙")
-    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🔙")
+    mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
 
 @bot.command(name="criar", aliases=["Criar", "CRIAR", "create", "Create", "CREATE"])
 async def criar(ctx):
     await ctx.message.delete()
     idioma = obter_idioma(ctx.guild.id)
     embed = get_create_embed(ctx.guild.roles, idioma)
-    await limpar_mensagens(ctx.channel, ctx.author, ctx.bot.user)
-    message = await ctx.send(embed=embed)
-    await message.add_reaction("🔙")
-    mensagem_voltar_ids[str(ctx.guild.id)] = message.id
-    await message.add_reaction("✅")
-    mensagem_avancar_ids[str(ctx.guild.id)]= message.id
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🔙")
+    await msg.add_reaction("✅")
+    mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
+    mensagem_avancar_ids[str(ctx.guild.id)] = msg.id
     criando_modo[ctx.author.id] = "esperando_nome"
 
 bot.run(TOKEN)

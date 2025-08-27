@@ -299,154 +299,121 @@ def get_invalid_name_embed(language):
         embed.set_footer(text="Use # before the name to confirm. Ex: #Events")
     return embed
 
-def get_role_requested_embed(language):
+def get_role_select_embed(language, roles):
     if language == "pt":
         embed = discord.Embed(
-            title="📌 **Marque o cargo principal do modo**",
+            title="🚧 Criação de Modo (etapa 2 de 5)",
             description=(
-                "Por favor, mencione **um cargo** usando `@` para ser o cargo principal do seu modo.\n\n"
-                "Exemplo: @Moderadores, @VIP, @Staff\n\n"
-                "⚠️ É importante que apenas um cargo seja mencionado para evitar conflitos."
+                "Escolha qual cargo será atribuído a este modo.\n\n"
+                "📌 _Mencione o cargo ou digite o nome exato do cargo._\n"
+                "⚠️ Você precisa ter permissão para gerenciar cargos."
             ),
-            color=discord.Color.orange()
+            color=discord.Color.green()
         )
-        embed.set_footer(text="Use a menção do cargo para confirmar. Ex: @Moderadores")
+        embed.set_footer(text="Mencione o cargo ou digite o nome. Ex: @Staff")
     else:
         embed = discord.Embed(
-            title="📌 **Mention the main role of the mode**",
+            title="🚧 Mode Creation (step 2 of 5)",
             description=(
-                "Please mention **one role** using `@` to set it as the main role of your mode.\n\n"
-                "Example: @Moderators, @VIP, @Staff\n\n"
-                "⚠️ It's important to mention only one role to avoid conflicts."
+                "Choose which role will be assigned to this mode.\n\n"
+                "📌 _Mention the role or type the exact role name._\n"
+                "⚠️ You need permission to manage roles."
             ),
-            color=discord.Color.orange()
+            color=discord.Color.green()
         )
-        embed.set_footer(text="Use the role mention to confirm. Ex: @Moderators")
+        embed.set_footer(text="Mention the role or type its name. Ex: @Staff")
+
+    role_list = "\n".join([f"- {role.name}" for role in roles])
+    embed.add_field(name="Available roles:" if language != "pt" else "Cargos disponíveis:", 
+                    value=role_list or ("Nenhum cargo encontrado." if language == "pt" else "No roles found."), 
+                    inline=False)
+    return embed
+
+def get_role_saved_embed(language, role_name):
+    if language == "pt":
+        embed = discord.Embed(
+            title="✅ Cargo selecionado!",
+            description=f"O cargo **{role_name}** foi atribuído ao modo com sucesso.",
+            color=discord.Color.green()
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ Role selected!",
+            description=f"The role **{role_name}** was successfully assigned to the mode.",
+            color=discord.Color.green()
+        )
     return embed
 
 def get_invalid_role_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="❌ Cargo inválido!",
-            description=(
-                "Você precisa mencionar **um cargo válido** usando @ para continuar.\n"
-                "Por favor, tente novamente e mencione um cargo visível no servidor."
-            ),
+            title="❌ Cargo inválido",
+            description="Cargo não encontrado. Por favor, mencione o cargo ou digite o nome correto.",
             color=discord.Color.red()
         )
-        embed.set_footer(text="Exemplo: @Moderadores")
     else:
         embed = discord.Embed(
-            title="❌ Invalid Role!",
-            description=(
-                "You need to mention **a valid role** using @ to continue.\n"
-                "Please try again and mention a role visible in the server."
-            ),
+            title="❌ Invalid role",
+            description="Role not found. Please mention the role or type the correct name.",
             color=discord.Color.red()
         )
-        embed.set_footer(text="Example: @Moderators")
     return embed
 
-def get_channels_request_embed(language):
+def get_channel_select_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="📢 **Marque os canais ou categorias**",
+            title="🚧 Criação de Modo (etapa 3 de 5)",
             description=(
-                "Agora, por favor, mencione os canais e/ou categorias que deseja associar ao modo.\n\n"
-                "Use `#` para canais e/ou selecione as categorias correspondentes.\n\n"
-                "Exemplo: #geral, #eventos, @CategoriaVIP\n\n"
-                "⚠️ Certifique-se de que os canais ou categorias estejam visíveis para o bot."
+                "Agora escolha quais **canais de texto, voz ou categorias** ficarão **privados** "
+                "para este cargo/modo.\n\n"
+                "📌 _Mencione o canal/categoria ou digite o nome exato._\n"
+                "⚠️ Você precisa ter permissão para gerenciar canais."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Use as menções para confirmar os canais.")
+        embed.set_footer(text="Mencione ou digite o nome do canal/categoria.")
     else:
         embed = discord.Embed(
-            title="📢 **Mention channels or categories**",
+            title="🚧 Mode Creation (step 3 of 5)",
             description=(
-                "Now, please mention the channels and/or categories you want to associate with the mode.\n\n"
-                "Use `#` for channels and/or mention the corresponding categories.\n\n"
-                "Example: #general, #events, @VIPCategory\n\n"
-                "⚠️ Make sure the channels or categories are visible to the bot."
+                "Now choose which **text channels, voice channels, or categories** will be **private** "
+                "for this role/mode.\n\n"
+                "📌 _Mention the channel/category or type the exact name._\n"
+                "⚠️ You need permission to manage channels."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Use mentions to confirm the channels.")
+        embed.set_footer(text="Mention or type the name of the channel/category.")
     return embed
 
-def get_allowed_roles_embed(language):
+def get_channel_saved_embed(language, channel_name):
     if language == "pt":
         embed = discord.Embed(
-            title="👥 Defina os cargos permitidos",
-            description=(
-                "Agora mencione os cargos ou bots que **poderão acessar esse modo** além do cargo principal. "
-                "Eles **devem ter uma hierarquia inferior** ao cargo principal.\n\n"
-                "📌 Você pode mencionar **vários** de uma vez (ex: `@Cargo1 @Cargo2 @Bot`), "
-                "ou digitar `pular` para seguir sem adicionar cargos extras."
-            ),
-            color=discord.Color.orange()
-        )
-        embed.set_footer(text="Etapa 4 de 5 • Cargos permitidos")
-    else:
-        embed = discord.Embed(
-            title="👥 Set allowed roles",
-            description=(
-                "Mention the roles or bots that **should have access** to this mode besides the main role. "
-                "They **must be lower in hierarchy** than the main role.\n\n"
-                "📌 You can mention **multiple** at once (ex: `@Role1 @Role2 @Bot`), "
-                "or type `skip` to proceed without extra roles."
-            ),
-            color=discord.Color.orange()
-        )
-        embed.set_footer(text="Step 4 of 5 • Allowed roles")
-    return embed
-
-def get_invalid_roles_embed(language):
-    if language == "pt":
-        embed = discord.Embed(
-            title="❌ Cargos inválidos",
-            description=(
-                "Você precisa mencionar cargos ou bots válidos que tenham **hierarquia inferior ao cargo principal**."
-            ),
-            color=discord.Color.red()
-        )
-        embed.set_footer(text="Tente novamente ou digite `pular`.")
-    else:
-        embed = discord.Embed(
-            title="❌ Invalid roles",
-            description=(
-                "You must mention valid roles or bots with **lower hierarchy than the main role**."
-            ),
-            color=discord.Color.red()
-        )
-        embed.set_footer(text="Try again or type `skip`.")
-    return embed
-
-def get_final_embed(language):
-    if language == "pt":
-        return discord.Embed(
-            title="✅ Modo criado com sucesso!",
-            description="Seu modo foi salvo e está pronto para uso.",
+            title="✅ Canal/Categoria selecionado!",
+            description=f"O canal/categoria **{channel_name}** foi atribuído ao modo com sucesso.",
             color=discord.Color.green()
         )
     else:
-        return discord.Embed(
-            title="✅ Mode successfully created!",
-            description="Your mode has been saved and is ready to use.",
+        embed = discord.Embed(
+            title="✅ Channel/Category selected!",
+            description=f"The channel/category **{channel_name}** was successfully assigned to the mode.",
             color=discord.Color.green()
         )
     return embed
 
-def get_invalid_channels_embed(language):
+def get_invalid_channel_embed(language):
     if language == "pt":
-        return discord.Embed(
-            title="Canais inválidos ❌",
-            description="Você precisa mencionar canais ou canais de voz válidos. Tente novamente ou digite `pular` para ignorar essa etapa.",
+        embed = discord.Embed(
+            title="❌ Canal/Categoria inválido",
+            description="Canal ou categoria não encontrado(a). "
+                        "Por favor, mencione corretamente ou digite o nome exato.",
             color=discord.Color.red()
         )
     else:
-        return discord.Embed(
-            title="Invalid Channels ❌",
-            description="You must mention valid text or voice channels. Try again or type `skip` to skip this step.",
+        embed = discord.Embed(
+            title="❌ Invalid Channel/Category",
+            description="Channel or category not found. "
+                        "Please mention it correctly or type the exact name.",
             color=discord.Color.red()
         )
+    return embed
