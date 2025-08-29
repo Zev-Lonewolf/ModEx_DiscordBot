@@ -417,3 +417,105 @@ def get_invalid_channel_embed(language):
             color=discord.Color.red()
         )
     return embed
+
+def get_reception_mode_question_embed(language):
+    if language == "pt":
+        embed = discord.Embed(
+            title="🚧 Criação de Modo (etapa 4 de 5)",
+            description=(
+                "Deseja atribuir este cargo como **modo de recepção**?\n\n"
+                "📌 Apenas **um modo** pode estar configurado como recepção por vez.\n"
+                "✅ Clique **sim** para atribuir.\n"
+                "❌ Clique **não** para pular."
+            ),
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text="Confirme se este cargo será o modo de recepção.")
+    else:
+        embed = discord.Embed(
+            title="🚧 Mode Creation (step 4 of 5)",
+            description=(
+                "Do you want to assign this role as the **reception mode**?\n\n"
+                "📌 Only **one mode** can be configured as reception at a time.\n"
+                "✅ Click **yes** to assign.\n"
+                "❌ Click **no** to skip."
+            ),
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text="Confirm if this role will be the reception mode.")
+    return embed
+
+
+def get_reception_assigned_embed(language, role_name):
+    if language == "pt":
+        embed = discord.Embed(
+            title="✅ Modo de recepção atribuído!",
+            description=f"O cargo **{role_name}** agora é o modo de recepção do servidor.",
+            color=discord.Color.green()
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ Reception mode assigned!",
+            description=f"The role **{role_name}** is now the reception mode of the server.",
+            color=discord.Color.green()
+        )
+    return embed
+
+
+def get_reception_replaced_embed(language, old_role, new_role):
+    if language == "pt":
+        embed = discord.Embed(
+            title="⚠️ Modo de recepção atualizado!",
+            description=(
+                f"O cargo **{old_role}** não é mais o modo de recepção.\n"
+                f"O cargo **{new_role}** foi atribuído no lugar dele."
+            ),
+            color=discord.Color.orange()
+        )
+    else:
+        embed = discord.Embed(
+            title="⚠️ Reception mode updated!",
+            description=(
+                f"The role **{old_role}** is no longer the reception mode.\n"
+                f"The role **{new_role}** has been assigned instead."
+            ),
+            color=discord.Color.orange()
+        )
+    return embed
+
+
+def get_reception_error_embed(language):
+    if language == "pt":
+        embed = discord.Embed(
+            title="❌ Erro ao atribuir modo de recepção",
+            description="Ocorreu um erro ao tentar configurar este cargo como modo de recepção. "
+                        "Tente novamente ou verifique as permissões do bot.",
+            color=discord.Color.red()
+        )
+    else:
+        embed = discord.Embed(
+            title="❌ Error assigning reception mode",
+            description="An error occurred while trying to set this role as the reception mode. "
+                        "Please try again or check the bot's permissions.",
+            color=discord.Color.red()
+        )
+    return embed
+
+def get_name_conflict_embed(language, nome_modo):
+    if language == "pt":
+        embed = discord.Embed(
+            title="⚠️ Modo já existente",
+            description=f"Já existe um modo chamado **{nome_modo}**.\n\n"
+                        "Deseja editar este modo existente ou criar um novo com outro nome?\n"
+                        "Reaja com ✅ para editar ou ❌ para cancelar/criar outro nome.",
+            color=discord.Color.orange()
+        )
+    else:
+        embed = discord.Embed(
+            title="⚠️ Mode already exists",
+            description=f"A mode named **{nome_modo}** already exists.\n\n"
+                        "Do you want to edit this existing mode or create a new one with a different name?\n"
+                        "React with ✅ to edit or ❌ to cancel/create another name.",
+            color=discord.Color.orange()
+        )
+    return embed
