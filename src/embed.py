@@ -299,6 +299,29 @@ def get_invalid_name_embed(language):
         embed.set_footer(text="Use # before the name to confirm. Ex: #Events")
     return embed
 
+def get_name_conflict_embed(language, nome_modo):
+    if language == "pt":
+        embed = discord.Embed(
+            title="⚠️ Conflito de nome",
+            description=(
+                f"Já existe um modo chamado **{nome_modo}**.\n\n"
+                "✅ Clique para **editar** esse modo.\n"
+                "❌ Clique para **cancelar** e escolher outro nome."
+            ),
+            color=discord.Color.orange()
+        )
+    else:
+        embed = discord.Embed(
+            title="⚠️ Name conflict",
+            description=(
+                f"A mode named **{nome_modo}** already exists.\n\n"
+                "✅ Click to **edit** this mode.\n"
+                "❌ Click to **cancel** and choose another name."
+            ),
+            color=discord.Color.orange()
+        )
+    return embed
+
 def get_role_select_embed(language, roles):
     if language == "pt":
         embed = discord.Embed(
@@ -445,6 +468,21 @@ def get_reception_mode_question_embed(language):
         embed.set_footer(text="A server can only have one reception mode active.")
     return embed
 
+def get_reception_assigned_embed(language, role_name):
+    if language == "pt":
+        embed = discord.Embed(
+            title="✅ Modo de recepção atribuído",
+            description=f"O cargo **{role_name}** agora é o modo de recepção do servidor.",
+            color=discord.Color.green()
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ Reception mode assigned",
+            description=f"The role **{role_name}** is now the reception mode of the server.",
+            color=discord.Color.green()
+        )
+    return embed
+
 def get_reception_replaced_embed(language, old_role, new_role):
     if language == "pt":
         embed = discord.Embed(
@@ -461,30 +499,6 @@ def get_reception_replaced_embed(language, old_role, new_role):
             description=(
                 f"The role **{old_role}** is no longer the reception mode.\n"
                 f"The role **{new_role}** has been assigned instead."
-            ),
-            color=discord.Color.orange()
-        )
-    return embed
-
-def get_channel_reset_warning_embed(language, canais_invalidos):
-    canais_str = ", ".join(canais_invalidos)
-    if language == "pt":
-        embed = discord.Embed(
-            title="⚠️ Canais inválidos",
-            description=(
-                f"Os seguintes canais são inválidos ou não podem ser usados:\n"
-                f"**{canais_str}**\n\n"
-                "O modo será reiniciado para corrigir os canais."
-            ),
-            color=discord.Color.orange()
-        )
-    else:
-        embed = discord.Embed(
-            title="⚠️ Invalid channels",
-            description=(
-                f"The following channels are invalid or cannot be used:\n"
-                f"**{canais_str}**\n\n"
-                "The mode will be reset to fix the channels."
             ),
             color=discord.Color.orange()
         )
@@ -511,43 +525,27 @@ def get_reception_error_embed(language):
         )
     return embed
 
-def get_name_conflict_embed(language, nome_modo):
+def get_channel_reset_warning_embed(language, canais_invalidos):
+    canais_str = ", ".join(canais_invalidos)
     if language == "pt":
         embed = discord.Embed(
-            title="⚠️ Conflito de nome",
+            title="⚠️ Canais inválidos",
             description=(
-                f"Já existe um modo chamado **{nome_modo}**.\n\n"
-                "✅ Clique para **editar** esse modo.\n"
-                "❌ Clique para **cancelar** e escolher outro nome."
+                f"Os seguintes canais são inválidos ou não podem ser usados:\n"
+                f"**{canais_str}**\n\n"
+                "O modo será reiniciado para corrigir os canais."
             ),
             color=discord.Color.orange()
         )
     else:
         embed = discord.Embed(
-            title="⚠️ Name conflict",
+            title="⚠️ Invalid channels",
             description=(
-                f"A mode named **{nome_modo}** already exists.\n\n"
-                "✅ Click to **edit** this mode.\n"
-                "❌ Click to **cancel** and choose another name."
+                f"The following channels are invalid or cannot be used:\n"
+                f"**{canais_str}**\n\n"
+                "The mode will be reset to fix the channels."
             ),
             color=discord.Color.orange()
-        )
-    return embed
-
-import discord
-
-def get_reception_assigned_embed(language, role_name):
-    if language == "pt":
-        embed = discord.Embed(
-            title="✅ Modo de recepção atribuído",
-            description=f"O cargo **{role_name}** agora é o modo de recepção do servidor.",
-            color=discord.Color.green()
-        )
-    else:
-        embed = discord.Embed(
-            title="✅ Reception mode assigned",
-            description=f"The role **{role_name}** is now the reception mode of the server.",
-            color=discord.Color.green()
         )
     return embed
 
