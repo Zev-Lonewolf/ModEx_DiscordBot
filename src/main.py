@@ -5,10 +5,10 @@ from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
 from utils.modos import (
     criar_modo,
     modo_existe,
+    salvar_modos,
     salvar_roles_modo,
     carregar_modos,
     salvar_channels_modo,
-    salvar_recepcao_modo,
     atribuir_recepcao
 )
 import json
@@ -33,8 +33,10 @@ from embed import (
     get_reception_mode_question_embed,
     get_reception_assigned_embed,
     get_reception_replaced_embed,
-    get_reception_error_embed,
-    get_name_conflict_embed
+    get_name_conflict_embed,
+    get_reception_skipped_embed,
+    get_finish_mode_embed,
+    get_channel_reset_warning_embed
 )
 
 intents = discord.Intents.default()
@@ -52,6 +54,7 @@ criando_modo = {}
 historico_embeds = {}
 resposta_enviada = set()
 modo_ids = {}
+MODOS_CACHE = carregar_modos()
 
 def push_embed(user_id, estado):
     historico_embeds.setdefault(user_id, []).append(estado)
@@ -128,6 +131,35 @@ async def on_guild_join(guild):
             break
 
 @bot.event
+async def on_member_join(member):
+    guild_id = str(member.guild.id)
+    dados = carregar_modos()
+    server_modos = dados.get(guild_id, {}).get("modos", {})
+
+    modo_recepcao = None
+    for modo in server_modos.values():
+        if modo.get("recepcao"):
+            modo_recepcao = modo
+            break
+
+    if not modo_recepcao:
+        return
+
+    role_ids = modo_recepcao.get("roles", [])
+    if not role_ids:
+        return
+
+    role = member.guild.get_role(int(role_ids[0]))
+    if not role:
+        return
+
+    try:
+        await member.add_roles(role)
+        print(f"[INFO] Cargo de recepção '{role.name}' atribuído a {member.name}")
+    except Exception as e:
+        print(f"[ERROR] Falha ao atribuir cargo de recepção: {e}")
+
+@bot.event
 async def on_raw_reaction_add(payload):
     if payload.user_id == bot.user.id:
         return
@@ -163,7 +195,6 @@ async def on_raw_reaction_add(payload):
     voltar_msg_id = mensagem_voltar_ids.get(guild_id)
     avancar_msg_id = mensagem_avancar_ids.get(guild_id)
 
-    # Voltar
     if payload.emoji.name == "🔙" and message_id == voltar_msg_id:
         estado_anterior = pop_embed(user_id)
         if estado_anterior == "get_create_embed":
@@ -187,9 +218,7 @@ async def on_raw_reaction_add(payload):
         mensagem_voltar_ids[guild_id] = msg.id
         return
 
-    # Avançar
     if payload.emoji.name == "✅" and message_id == avancar_msg_id:
-        # Etapa: Nome
         if estado == "esperando_nome":
             push_embed(user_id, "get_create_embed")
             embed = get_initial_create_embed(idioma)
@@ -201,7 +230,6 @@ async def on_raw_reaction_add(payload):
             mensagem_voltar_ids[guild_id] = nova_msg.id
             return
 
-        # Etapa: Cargo
         elif estado == "nome_salvo":
             push_embed(user_id, "get_initial_create_embed")
             embed = get_role_select_embed(idioma, canal.guild.roles)
@@ -213,7 +241,6 @@ async def on_raw_reaction_add(payload):
             mensagem_voltar_ids[guild_id] = nova_msg.id
             return
         
-        # Etapa: Canais
         elif estado == "cargo_salvo":
             push_embed(user_id, "get_role_select_embed")
             embed = get_channel_select_embed(idioma)
@@ -225,7 +252,6 @@ async def on_raw_reaction_add(payload):
             mensagem_voltar_ids[guild_id] = nova_msg.id
             return
 
-    # Etapa: Pergunta de recepção
     if estado == "canais_salvos":
         push_embed(user_id, "get_channel_select_embed")
         embed = get_reception_mode_question_embed(idioma)
@@ -238,49 +264,111 @@ async def on_raw_reaction_add(payload):
         mensagem_voltar_ids[guild_id] = nova_msg.id
         mensagem_avancar_ids[guild_id] = nova_msg.id
         return
-
+        
     if estado == "modo_recepcao" and message_id == avancar_msg_id:
-        try:
-            dados = carregar_modos()
-            server_modos = dados.setdefault(guild_id, {}).setdefault("modos", {})
+        modo_atual = carregar_modos()[str(canal.guild.id)]["modos"][modo_ids[user_id]]
 
-            if payload.emoji.name == "✅":
-                # Atribui recepção e pega o ID do modo anterior, se houver
-                recepcao_anterior = atribuir_recepcao(guild_id, modo_ids[user_id])
-                await limpar_mensagens(canal, bot.user, bot.user)
+        if payload.emoji.name == "✅" and criando_modo.get(user_id) != "modo_recepcao_salvo":
+            modo_antigo_id = await atribuir_recepcao(canal.guild, modo_ids[user_id])
 
-                current_role_name = server_modos[modo_ids[user_id]].get("nome", "Unknown")
+            if modo_antigo_id:
+                old_name = carregar_modos()[str(canal.guild.id)]["modos"][modo_antigo_id].get("nome", "Unknown")
+                embed = get_reception_replaced_embed(idioma, old_name, modo_atual.get("nome", "Unknown"))
+            else:
+                embed = get_reception_assigned_embed(idioma, modo_atual.get("nome", "Unknown"))
 
-                if recepcao_anterior:
-                    old_role_name = server_modos[recepcao_anterior].get("nome", "Unknown")
-                    embed = get_reception_replaced_embed(idioma, old_role_name, current_role_name)
-                else:
-                    embed = get_reception_assigned_embed(idioma, current_role_name)
-
-                msg = await canal.send(embed=embed)
-                await msg.add_reaction("🔙")
-                criando_modo[user_id] = "modo_recepcao_salvo"
-                return
-
-            elif payload.emoji.name == "❌":
-                salvar_recepcao_modo(guild_id, modo_ids[user_id], False)
-                await limpar_mensagens(canal, bot.user, bot.user)
-
-                current_role_name = server_modos[modo_ids[user_id]].get("nome", "Unknown")
-                embed = get_reception_assigned_embed(idioma, current_role_name, assigned=False)
-
-                msg = await canal.send(embed=embed)
-                await msg.add_reaction("🔙")
-                criando_modo[user_id] = "modo_recepcao_salvo"
-                return
-
-        except Exception:
             await limpar_mensagens(canal, bot.user, bot.user)
-            embed = get_reception_error_embed(idioma)
             msg = await canal.send(embed=embed)
             await msg.add_reaction("🔙")
-            criando_modo[user_id] = "modo_recepcao_erro"
+            await msg.add_reaction("✅")
+            criando_modo[user_id] = "modo_recepcao_salvo"
+            mensagem_avancar_ids[guild_id] = msg.id
             return
+
+        elif payload.emoji.name == "✅" and criando_modo.get(user_id) == "modo_recepcao_salvo":
+            embed = get_finish_mode_embed(idioma)
+            await limpar_mensagens(canal, bot.user, bot.user)
+            msg = await canal.send(embed=embed)
+            await msg.add_reaction("🔙")
+            criando_modo[user_id] = "modo_finalizado"
+            mensagem_avancar_ids[guild_id] = msg.id
+            return
+
+        elif payload.emoji.name == "❌":
+            await limpar_mensagens(canal, bot.user, bot.user)
+            embed = get_reception_skipped_embed(idioma, modo_atual.get("nome", "Unknown"))
+            msg = await canal.send(embed=embed)
+            await msg.add_reaction("🔙")
+            criando_modo[user_id] = "modo_recepcao_cancelado"
+            mensagem_avancar_ids[guild_id] = msg.id
+            return
+
+async def finalizar_modo(guild, modo_id):
+    try:
+        dados = carregar_modos()
+        server_modos = dados.setdefault(str(guild.id), {}).setdefault("modos", {})
+        modo = server_modos.get(modo_id)
+        if not modo:
+            print("[ERROR] Modo não encontrado!")
+            return
+
+        role_ids = modo.get("roles", [])
+        if not role_ids:
+            print("[ERROR] Nenhum cargo registrado para esse modo!")
+            return
+
+        role_id = int(role_ids[0])
+        role = guild.get_role(role_id)
+        if not role:
+            print("[ERROR] Cargo não encontrado!")
+            return
+
+        channel_ids = modo.get("channels", [])
+        for ch_id in channel_ids:
+            canal = guild.get_channel(int(ch_id))
+            if not canal:
+                print(f"[WARN] Canal {ch_id} não encontrado.")
+                continue
+
+            await canal.set_permissions(guild.default_role, read_messages=False)
+
+            await canal.set_permissions(role, read_messages=True)
+
+        print(f"[INFO] Modo '{modo.get('nome', modo_id)}' finalizado com sucesso!")
+    except Exception as e:
+        print(f"[ERROR] finalizando modo falhou: {e}")
+
+async def atribuir_recepcao(guild, novo_modo_id):
+    try:
+        dados = carregar_modos()
+        server_modos = dados.setdefault(str(guild.id), {}).setdefault("modos", {})
+
+        modo_antigo_id = None
+        for mid, m in server_modos.items():
+            if m.get("recepcao") and mid != novo_modo_id:
+                modo_antigo_id = mid
+                role_ids = m.get("roles", [])
+                channel_ids = m.get("channels", [])
+                role_antigo = guild.get_role(int(role_ids[0])) if role_ids else None
+
+                if role_antigo:
+                    for ch_id in channel_ids:
+                        canal = guild.get_channel(ch_id)
+                        if canal:
+                            await canal.set_permissions(role_antigo, overwrite=None)
+
+                m["recepcao"] = False
+
+        novo_modo = server_modos[novo_modo_id]
+        novo_modo["recepcao"] = True
+        salvar_modos(dados)
+
+        await finalizar_modo(guild, novo_modo_id)
+
+        return modo_antigo_id
+    except Exception as e:
+        print(f"[ERROR] atribuir_recepcao falhou: {e}")
+        return None
 
 @bot.event
 async def on_message(message):
@@ -327,7 +415,6 @@ async def on_message(message):
         mensagem_avancar_ids[str(message.guild.id)] = msg.id
         criando_modo[user_id] = "nome_salvo"
         return
-
 
     if estado == "escolher_cargo":
         roles = []
@@ -383,7 +470,6 @@ async def on_message(message):
         mensagem_voltar_ids[str(message.guild.id)] = msg.id
         mensagem_avancar_ids[str(message.guild.id)] = msg.id
         criando_modo[user_id] = "cargo_salvo"
-
         return
     
     if estado == "escolher_canal":
@@ -403,6 +489,20 @@ async def on_message(message):
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(message.guild.id)] = msg.id
+            return
+
+        canais_invalidos = []
+        for ch in channels:
+            if ch.overwrites:
+                canais_invalidos.append(ch.name)
+
+        if canais_invalidos:
+            embed = get_channel_reset_warning_embed(idioma, canais_invalidos)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            await msg.add_reaction("🔙")
+            mensagem_voltar_ids[str(message.guild.id)] = msg.id
+            criando_modo[user_id] = "erro_canal"
             return
 
         salvar_channels_modo(message.guild.id, modo_ids[user_id], channels)

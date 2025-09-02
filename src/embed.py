@@ -424,43 +424,26 @@ def get_reception_mode_question_embed(language):
             title="🚧 Criação de Modo (etapa 4 de 5)",
             description=(
                 "Deseja atribuir este cargo como **modo de recepção**?\n\n"
-                "📌 Apenas **um modo** pode estar configurado como recepção por vez.\n"
-                "✅ Clique **sim** para atribuir.\n"
-                "❌ Clique **não** para pular."
+                "📌 Apenas **um modo** pode estar configurado como recepção por vez.\n\n"
+                "✅ Clique em **Sim** para atribuir.\n"
+                "❌ Clique em **Não** para pular."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Confirme se este cargo será o modo de recepção.")
+        embed.set_footer(text="Um servidor só pode ter um modo de recepção ativo.")
     else:
         embed = discord.Embed(
             title="🚧 Mode Creation (step 4 of 5)",
             description=(
                 "Do you want to assign this role as the **reception mode**?\n\n"
-                "📌 Only **one mode** can be configured as reception at a time.\n"
-                "✅ Click **yes** to assign.\n"
-                "❌ Click **no** to skip."
+                "📌 Only **one mode** can be configured as reception at a time.\n\n"
+                "✅ Click **Yes** to assign.\n"
+                "❌ Click **No** to skip."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Confirm if this role will be the reception mode.")
+        embed.set_footer(text="A server can only have one reception mode active.")
     return embed
-
-
-def get_reception_assigned_embed(language, role_name):
-    if language == "pt":
-        embed = discord.Embed(
-            title="✅ Modo de recepção atribuído!",
-            description=f"O cargo **{role_name}** agora é o modo de recepção do servidor.",
-            color=discord.Color.green()
-        )
-    else:
-        embed = discord.Embed(
-            title="✅ Reception mode assigned!",
-            description=f"The role **{role_name}** is now the reception mode of the server.",
-            color=discord.Color.green()
-        )
-    return embed
-
 
 def get_reception_replaced_embed(language, old_role, new_role):
     if language == "pt":
@@ -483,20 +466,47 @@ def get_reception_replaced_embed(language, old_role, new_role):
         )
     return embed
 
+def get_channel_reset_warning_embed(language, canais_invalidos):
+    canais_str = ", ".join(canais_invalidos)
+    if language == "pt":
+        embed = discord.Embed(
+            title="⚠️ Canais inválidos",
+            description=(
+                f"Os seguintes canais são inválidos ou não podem ser usados:\n"
+                f"**{canais_str}**\n\n"
+                "O modo será reiniciado para corrigir os canais."
+            ),
+            color=discord.Color.orange()
+        )
+    else:
+        embed = discord.Embed(
+            title="⚠️ Invalid channels",
+            description=(
+                f"The following channels are invalid or cannot be used:\n"
+                f"**{canais_str}**\n\n"
+                "The mode will be reset to fix the channels."
+            ),
+            color=discord.Color.orange()
+        )
+    return embed
 
 def get_reception_error_embed(language):
     if language == "pt":
         embed = discord.Embed(
             title="❌ Erro ao atribuir modo de recepção",
-            description="Ocorreu um erro ao tentar configurar este cargo como modo de recepção. "
-                        "Tente novamente ou verifique as permissões do bot.",
+            description=(
+                "Ocorreu um erro ao tentar configurar este cargo como modo de recepção.\n"
+                "👉 Verifique se o bot tem permissões suficientes (gerenciar canais/cargos)."
+            ),
             color=discord.Color.red()
         )
     else:
         embed = discord.Embed(
             title="❌ Error assigning reception mode",
-            description="An error occurred while trying to set this role as the reception mode. "
-                        "Please try again or check the bot's permissions.",
+            description=(
+                "An error occurred while trying to set this role as the reception mode.\n"
+                "👉 Make sure the bot has sufficient permissions (manage channels/roles)."
+            ),
             color=discord.Color.red()
         )
     return embed
@@ -504,18 +514,69 @@ def get_reception_error_embed(language):
 def get_name_conflict_embed(language, nome_modo):
     if language == "pt":
         embed = discord.Embed(
-            title="⚠️ Modo já existente",
-            description=f"Já existe um modo chamado **{nome_modo}**.\n\n"
-                        "Deseja editar este modo existente ou criar um novo com outro nome?\n"
-                        "Reaja com ✅ para editar ou ❌ para cancelar/criar outro nome.",
+            title="⚠️ Conflito de nome",
+            description=(
+                f"Já existe um modo chamado **{nome_modo}**.\n\n"
+                "✅ Clique para **editar** esse modo.\n"
+                "❌ Clique para **cancelar** e escolher outro nome."
+            ),
             color=discord.Color.orange()
         )
     else:
         embed = discord.Embed(
-            title="⚠️ Mode already exists",
-            description=f"A mode named **{nome_modo}** already exists.\n\n"
-                        "Do you want to edit this existing mode or create a new one with a different name?\n"
-                        "React with ✅ to edit or ❌ to cancel/create another name.",
+            title="⚠️ Name conflict",
+            description=(
+                f"A mode named **{nome_modo}** already exists.\n\n"
+                "✅ Click to **edit** this mode.\n"
+                "❌ Click to **cancel** and choose another name."
+            ),
             color=discord.Color.orange()
+        )
+    return embed
+
+import discord
+
+def get_reception_assigned_embed(language, role_name):
+    if language == "pt":
+        embed = discord.Embed(
+            title="✅ Modo de recepção atribuído",
+            description=f"O cargo **{role_name}** agora é o modo de recepção do servidor.",
+            color=discord.Color.green()
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ Reception mode assigned",
+            description=f"The role **{role_name}** is now the reception mode of the server.",
+            color=discord.Color.green()
+        )
+    return embed
+
+def get_reception_skipped_embed(language, role_name):
+    if language == "pt":
+        embed = discord.Embed(
+            title="ℹ️ Cargo não definido como recepção",
+            description=f"O cargo **{role_name}** foi configurado, mas não será usado como recepção.",
+            color=discord.Color.blue()
+        )
+    else:
+        embed = discord.Embed(
+            title="ℹ️ Role not set as reception",
+            description=f"The role **{role_name}** has been configured, but will not be used as reception.",
+            color=discord.Color.blue()
+        )
+    return embed
+
+def get_finish_mode_embed(language):
+    if language == "pt":
+        embed = discord.Embed(
+            title="✅ Criação de Modo finalizada",
+            description="O modo foi configurado com sucesso! 🎉",
+            color=discord.Color.green()
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ Mode creation finished",
+            description="The mode has been successfully configured! 🎉",
+            color=discord.Color.green()
         )
     return embed
