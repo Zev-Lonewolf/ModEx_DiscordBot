@@ -346,7 +346,7 @@ def get_role_select_embed(language, roles):
         )
         embed.set_footer(text="Mention the role or type its name. Ex: @Staff")
 
-    role_list = "\n".join([f"- {role.name}" for role in roles])
+    role_list = "\n".join([f"- {role.name}" for role in roles if hasattr(role, "name")])
     embed.add_field(name="Available roles:" if language != "pt" else "Cargos disponíveis:", 
                     value=role_list or ("Nenhum cargo encontrado." if language == "pt" else "No roles found."), 
                     inline=False)
