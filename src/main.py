@@ -1,5 +1,6 @@
 import re
 import json
+import inspect
 import discord
 from discord.ext import commands
 from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
@@ -162,7 +163,7 @@ flow = {
         "next": "get_finish_mode_embed"
     },
     "get_finish_mode_embed": {
-        "back": "get_initial_create_embed",
+        "back": "get_setup_embed",
         "next": None
     }
 }
@@ -247,13 +248,13 @@ def definir_idioma(guild_id, idioma):
     idiomas[str(guild_id)] = idioma
     salvar_idiomas(idiomas)
 
-def push_embed(user_id, estado):
-    historico_embeds.setdefault(user_id, []).append(estado)
+def push_embed(user_id, estado, *args):
+    historico_embeds.setdefault(user_id, []).append((estado, args))
 
 def pop_embed(user_id):
     if historico_embeds.get(user_id):
         return historico_embeds[user_id].pop()
-    return None
+    return None, ()
 
 async def limpar_mensagens(canal, autor1, autor2, quantidade=50):
     def check(msg):
@@ -278,6 +279,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         return
 
     idioma = obter_idioma(guild_id)
+    extra_args = () 
 
     # ---------- SE RESULTADO FOR TUPLA (EX: assigned/skipped) ----------
     if isinstance(resultado, tuple):
@@ -348,7 +350,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         print(f"[ERROR] ao gerar embed {next_embed_name}: {e}")
         return
 
-    push_embed(user_id, current)
+    push_embed(user_id, next_embed_name, *extra_args, current)
 
     membro = canal.guild.get_member(user_id)
     await limpar_mensagens(canal, membro, bot.user)
@@ -384,7 +386,45 @@ async def go_next(canal, user_id, guild_id, resultado=None):
     user_progress.setdefault(guild_id, {})[user_id] = next_embed_name
 
 async def go_back(canal, user_id, guild_id):
-    last_embed = pop_embed(user_id)
+    current = user_progress.get(guild_id, {}).get(user_id)
+    idioma = obter_idioma(guild_id)
+
+    if current == "get_finish_mode_embed":
+        back_embed = flow[current].get("back")
+        if not back_embed:
+            return
+
+        embed_func = EMBEDS.get(back_embed)
+        if not embed_func:
+            print(f"[ERROR] Embed {back_embed} não encontrado")
+            return
+
+        try:
+            embed = embed_func(idioma)
+        except Exception as e:
+            print(f"[ERROR] ao gerar embed {back_embed}: {e}")
+            return
+
+        membro = canal.guild.get_member(user_id)
+        await limpar_mensagens(canal, membro, bot.user)
+        msg = await canal.send(embed=embed)
+
+        if flow[back_embed].get("back"):
+            await msg.add_reaction("🔙")
+        if flow[back_embed].get("next"):
+            await msg.add_reaction("✅")
+
+        user_progress.setdefault(guild_id, {})[user_id] = back_embed
+        return
+
+    # ----------------- Lógica normal (com histórico) -----------------
+    if not historico_embeds.get(user_id):
+        return
+
+    while historico_embeds[user_id] and historico_embeds[user_id][-1][0] == current:
+        historico_embeds[user_id].pop()
+
+    last_embed, args = pop_embed(user_id)
     if not last_embed:
         return
 
@@ -393,21 +433,21 @@ async def go_back(canal, user_id, guild_id):
         print(f"[ERROR] Embed {last_embed} não encontrado")
         return
 
-    idioma = obter_idioma(guild_id)
-
     embed = None
     try:
+        import inspect
+        sig = inspect.signature(embed_func)
+        num_params = len(sig.parameters)
+
         if last_embed in ("get_roles_embed", "get_create_embed"):
             roles = [role for role in canal.guild.roles if not role.is_default()]
-            try:
-                embed = embed_func(idioma, roles)
-            except TypeError:
-                try:
-                    embed = embed_func(idioma, roles)
-                except TypeError:
-                    embed = embed_func(idioma)
+            embed = embed_func(idioma, roles) if num_params > 1 else embed_func(idioma)
+        elif last_embed == "get_channel_select_embed":
+            channels = canal.guild.channels
+            embed = embed_func(idioma, channels) if num_params > 1 else embed_func(idioma)
         else:
-            embed = embed_func(idioma)
+            embed = embed_func(idioma) if num_params == 1 else embed_func(idioma, *args)
+
     except Exception as e:
         print(f"[ERROR] ao gerar embed {last_embed}: {e}")
         return
@@ -491,18 +531,23 @@ async def on_raw_reaction_add(payload):
                     ch = guild.get_channel(int(cid))
                     if ch:
                         try:
-                            overwrite = {
-                                guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                                role: discord.PermissionOverwrite(view_channel=True)
-                            }
-                            await ch.edit(overwrites=overwrite)
+                            overwrites = ch.overwrites.copy()
+                            overwrites[guild.default_role] = discord.PermissionOverwrite(view_channel=False)
+                            overwrites[role] = discord.PermissionOverwrite(view_channel=True)
+                            await ch.edit(overwrites=overwrites)
                         except Exception as e:
                             print(f"[ERROR] Falha ao atualizar permissões de {ch}: {e}")
 
-            atribuir_recepcao(guild_id, modo_id)
-            salvar_modos(modos)
+            # --- Corrigido: checa se houve substituição ---
+            recepcao_anterior = atribuir_recepcao(guild_id, modo_id)
 
-            await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", role.name))
+            if recepcao_anterior:
+                old_role_id = modos.get(str(guild_id), {}).get("modos", {}).get(recepcao_anterior, {}).get("roles", [None])[0]
+                old_role = guild.get_role(int(old_role_id)) if old_role_id else None
+                old_name = old_role.name if old_role else "N/A"
+                await go_next(canal, user_id, guild_id, resultado=("get_reception_replaced_embed", old_name, role.name))
+            else:
+                await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", role.name))
         else:
             await go_next(canal, user_id, guild_id)
 
@@ -510,28 +555,30 @@ async def on_raw_reaction_add(payload):
     elif payload.emoji.name == "❌":
         if current == "get_reception_mode_question_embed":
             modo_id = modo_ids.get(user_id)
+            if not modo_id:
+                return
+
             modos = carregar_modos()
             modo = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id)
 
-            if modo:
-                cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
-                canais_ids = modo.get("channels", [])
-                role = guild.get_role(cargo_id) if cargo_id else None
+            cargo_id = int(modo["roles"][0]) if modo and modo.get("roles") else None
+            canais_ids = modo.get("channels", []) if modo else []
+            role = guild.get_role(cargo_id) if cargo_id else None
 
-                if role:
-                    for cid in canais_ids:
-                        ch = guild.get_channel(int(cid))
-                        if ch:
-                            try:
-                                overwrite = {
-                                    guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                                    role: discord.PermissionOverwrite(view_channel=True)
-                                }
-                                await ch.edit(overwrites=overwrite)
-                            except Exception as e:
-                                print(f"[ERROR] Falha ao atualizar permissões de {ch}: {e}")
+            if role:
+                for cid in canais_ids:
+                    ch = guild.get_channel(int(cid))
+                    if ch:
+                        try:
+                            overwrites = ch.overwrites.copy()
+                            overwrites[guild.default_role] = discord.PermissionOverwrite(view_channel=False)
+                            overwrites[role] = discord.PermissionOverwrite(view_channel=True)
+                            await ch.edit(overwrites=overwrites)
+                        except Exception as e:
+                            print(f"[ERROR] Falha ao atualizar permissões de {ch} (skip): {e}")
 
-            await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role.name))
+            role_name = role.name if role else "N/A"
+            await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
 
 @bot.event
 async def on_message(message):
@@ -678,13 +725,6 @@ async def on_message(message):
         salvar_modos(carregar_modos())
 
         # -------------------- ATRIBUIR RECEPÇÃO --------------------
-        try:
-            recepcao_anterior = atribuir_recepcao(guild_id, modo_ids[user_id])
-            if recepcao_anterior:
-                print(f"[INFO] Modo de recepção anterior ({recepcao_anterior}) desativado.")
-        except Exception as e:
-            print(f"[ERROR] atribuir_recepcao falhou: {e}")
-
         embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
@@ -692,7 +732,6 @@ async def on_message(message):
         await msg.add_reaction("✅")
 
         user_progress.setdefault(guild_id, {})[user_id] = "get_channel_saved_embed"
-        push_embed(user_id, "get_channel_select_embed")
 
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
