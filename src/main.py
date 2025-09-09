@@ -21,6 +21,8 @@ from embed import (
     get_functions_embed,
     get_roles_embed,
     get_edit_embed,
+    get_invalid_mode_embed,
+    get_mode_selected_embed,
     get_create_embed,
     get_initial_create_embed,
     get_name_saved_embed,
@@ -80,8 +82,16 @@ flow = {
         "back": "get_setup_embed"
     },
     "get_edit_embed": {
+        "back": "get_setup_embed",
         "next": None,
-        "back": "get_setup_embed"
+    },
+    "get_mode_selected_embed": {
+        "next": "get_initial_create_embed",
+        "back": "get_edit_embed"
+    },
+    "get_invalid_mode_embed": {
+        "next": None,
+        "back": "get_edit_embed"
     },
     "get_create_embed": {
         "back": "get_setup_embed",
@@ -175,6 +185,8 @@ estado_to_embed = {
     "functions": "get_functions_embed",
     "roles": "get_roles_embed",
     "edit": "get_edit_embed",
+    "iniciando_edicao": "get_mode_selected_embed",
+    "erro_iniciacao_edicao": "get_invalid_mode_embed",
     "criando_modo": "get_create_embed",
     "inicial_criacao": "get_initial_create_embed",
     "nome_salvo": "get_name_saved_embed",
@@ -204,6 +216,8 @@ EMBEDS = {
     "get_functions_embed": get_functions_embed,
     "get_roles_embed": get_roles_embed,
     "get_edit_embed": get_edit_embed,
+    "get_invalid_mode_embed": get_invalid_mode_embed,
+    "get_mode_selected_embed": get_mode_selected_embed,
     "get_create_embed": get_create_embed,
     "get_initial_create_embed": get_initial_create_embed,
     "get_name_saved_embed": get_name_saved_embed,
@@ -512,7 +526,12 @@ async def on_raw_reaction_add(payload):
 
     # --- AVANÇAR ---
     elif payload.emoji.name == "✅":
-        if current == "get_reception_mode_question_embed":
+        if current == "get_mode_selected_embed":
+            criando_modo[user_id] = "esperando_nome"
+            await go_next(canal, user_id, guild_id)
+            return
+
+        elif current == "get_reception_mode_question_embed":
             modo_id = modo_ids.get(user_id)
             if not modo_id:
                 return
@@ -538,7 +557,6 @@ async def on_raw_reaction_add(payload):
                         except Exception as e:
                             print(f"[ERROR] Falha ao atualizar permissões de {ch}: {e}")
 
-            # --- Corrigido: checa se houve substituição ---
             recepcao_anterior = atribuir_recepcao(guild_id, modo_id)
 
             if recepcao_anterior:
@@ -548,6 +566,7 @@ async def on_raw_reaction_add(payload):
                 await go_next(canal, user_id, guild_id, resultado=("get_reception_replaced_embed", old_name, role.name))
             else:
                 await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", role.name))
+
         else:
             await go_next(canal, user_id, guild_id)
 
@@ -590,10 +609,39 @@ async def on_message(message):
     idioma = obter_idioma(guild_id) if guild_id else "pt"
     estado = criando_modo.get(user_id)
 
+    # -------------------- ETAPA EDIÇÃO (get_edit_embed) --------------------
+    current = user_progress.get(guild_id, {}).get(user_id)
+    if current == "get_edit_embed" and message.content.startswith("#"):
+        nome_modo = message.content[1:].strip()
+        modo_id = modo_existe(guild_id, nome_modo)
+
+        if not modo_id:
+            embed = get_invalid_mode_embed(idioma)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            await msg.add_reaction("🔙")
+            mensagem_voltar_ids[str(guild_id)] = msg.id
+            user_progress[guild_id][user_id] = "get_invalid_mode_embed"
+            criando_modo[user_id] = "erro_iniciacao_edicao"
+            return
+
+        modo_ids[user_id] = modo_id
+        embed = get_mode_selected_embed(nome_modo, idioma)
+        await limpar_mensagens(message.channel, bot.user, message.author)
+        msg = await message.channel.send(embed=embed)
+        await msg.add_reaction("🔙")
+        await msg.add_reaction("✅")
+        mensagem_voltar_ids[str(guild_id)] = msg.id
+        mensagem_avancar_ids[str(guild_id)] = msg.id
+        user_progress[guild_id][user_id] = "get_mode_selected_embed"
+        criando_modo[user_id] = "iniciando_edicao"
+        return
+
     # -------------------- ETAPA NOME --------------------
-    if estado == "esperando_nome" and message.content.startswith("#"):
+    if message.content.startswith("#"):
         nome_modo = message.content[1:].strip()
 
+        # Validação de tamanho do nome
         if not 2 <= len(nome_modo) <= 15:
             embed = get_invalid_name_embed(idioma)
             await limpar_mensagens(message.channel, bot.user, message.author)
@@ -601,35 +649,51 @@ async def on_message(message):
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
             criando_modo[user_id] = "nome_invalido"
+            push_embed(user_id, "get_create_embed")  # Guarda histórico para voltar
             return
 
-        modo_existente = modo_existe(guild_id, nome_modo)
+        # Se já existe um modo em edição
+        modo_existente = modo_ids.get(user_id)
+
         if modo_existente:
-            embed = get_name_conflict_embed(idioma, nome_modo)
-            await limpar_mensagens(message.channel, bot.user, message.author)
-            msg = await message.channel.send(embed=embed)
-            await msg.add_reaction("✅")
-            await msg.add_reaction("❌")
-            mensagem_voltar_ids[str(guild_id)] = msg.id
-            criando_modo[user_id] = f"nome_conflito_{modo_existente}"
-            return
+            # Atualiza nome do modo existente
+            dados = carregar_modos()
+            dados[str(guild_id)]["modos"][modo_existente]["nome"] = nome_modo
+            salvar_modos(dados)
+            MODOS_CACHE[str(guild_id)]["modos"][modo_existente]["nome"] = nome_modo
+            embed = get_name_saved_embed(idioma)
+            criando_modo[user_id] = "nome_salvo"
 
-        modo_id = criar_modo(guild_id, user_id, nome_modo)
-        modo_ids[user_id] = modo_id
+        else:
+            # Criando novo modo
+            modo_id_existente = modo_existe(guild_id, nome_modo)
+            if modo_id_existente:
+                embed = get_name_conflict_embed(idioma)
+                criando_modo[user_id] = "nome_conflito"
+            else:
+                # Cria o modo e mantém o ID ativo no fluxo
+                modo_id = criar_modo(guild_id, user_id, nome_modo)
+                modo_ids[user_id] = modo_id
 
-        salvar_modos(carregar_modos())
+                # Atualiza cache
+                dados = carregar_modos()
+                MODOS_CACHE[str(guild_id)]["modos"][modo_id] = dados[str(guild_id)]["modos"][modo_id]
 
-        embed = get_name_saved_embed(idioma)
+                embed = get_name_saved_embed(idioma)
+                criando_modo[user_id] = "nome_salvo"
+                # NÃO remover modo_ids[user_id] aqui! Ele precisa ser usado nos próximos passos
+
+        # Atualiza histórico do embed
+        push_embed(user_id, "get_create_embed", nome_modo)
+
+        # Envia embed final
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
         await msg.add_reaction("🔙")
         await msg.add_reaction("✅")
-
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
-        criando_modo[user_id] = "nome_salvo"
         user_progress.setdefault(guild_id, {})[user_id] = "get_name_saved_embed"
-        return
 
     # -------------------- ETAPA CARGO --------------------
     if estado == "selecionando_cargo":
@@ -682,22 +746,19 @@ async def on_message(message):
         embed = get_role_saved_embed(idioma, role.name)
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
-
-        user_progress.setdefault(guild_id, {})[user_id] = "get_role_saved_embed"
-        criando_modo[user_id] = "cargo_salvo"
-
         await msg.add_reaction("🔙")
         await msg.add_reaction("✅")
-
+        user_progress.setdefault(guild_id, {})[user_id] = "get_role_saved_embed"
+        criando_modo[user_id] = "cargo_salvo"
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
         return
 
-    # -------------------- ETAPA CANAL --------------------
+    # -------------------- ETAPA CANAL / ATRIBUIR RECEPÇÃO --------------------
     if estado == "selecionando_canal":
         channels = list(message.channel_mentions)
-
         content_lower = message.content.lower()
+
         for ch in message.guild.text_channels + message.guild.voice_channels + message.guild.categories:
             if ch.name.lower() == content_lower:
                 channels.append(ch)
@@ -721,24 +782,28 @@ async def on_message(message):
             criando_modo[user_id] = "erro_canal"
             return
 
+        # Salvar canais no modo
         salvar_channels_modo(guild_id, modo_ids[user_id], channels)
         salvar_modos(carregar_modos())
 
         # -------------------- ATRIBUIR RECEPÇÃO --------------------
+        try:
+            atribuir_recepcao(guild_id, modo_ids[user_id], channels)
+        except Exception as e:
+            print(f"[ERROR] atribuir_recepcao falhou: {e}")
+
         embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
         await msg.add_reaction("🔙")
         await msg.add_reaction("✅")
-
         user_progress.setdefault(guild_id, {})[user_id] = "get_channel_saved_embed"
-
+        criando_modo[user_id] = "canal_salvo"
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
-        criando_modo[user_id] = "canal_salvo"
         return
 
-# ----------------- CHAMADA DOS COMANDOS -----------------
+    # ----------------- CHAMADA DOS COMANDOS -----------------
     await bot.process_commands(message)
 
 # ----------------- COMANDOS -----------------
@@ -776,7 +841,7 @@ async def editar(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
 
     idioma = obter_idioma(ctx.guild.id)
-    embed = get_edit_embed(idioma)
+    embed = get_edit_embed(ctx.guild.id, idioma)
 
     msg = await ctx.channel.send(embed=embed)
 

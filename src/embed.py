@@ -1,4 +1,5 @@
 import discord
+from utils.modos import carregar_modos
 
 def get_language_embed():
     embed = discord.Embed(
@@ -161,25 +162,80 @@ def get_roles_embed(roles, language):
         embed.set_footer(text="📇 Keep your roles and modes organized for better server management.")
     return embed
 
-def get_edit_embed(language):
+def get_edit_embed(server_id, language):
+    dados = carregar_modos()
+    server_id = str(server_id)
+    modos = dados.get(server_id, {}).get("modos", {})
+
+    if language == "pt":
+        titulo = "**📝 Editar Modos Existentes**"
+        descricao = (
+            "Aqui estão os modos já criados no seu servidor.\n\n"
+            "➡️ Para editar um modo, digite o **nome** dele usando `#nomedomodo`.\n"
+            "⚠️ Atenção: ao salvar, os dados anteriores serão **substituídos** pelas novas configurações.\n\n"
+            "Caso não veja o modo desejado, certifique-se de que ele foi criado corretamente com `!criar`."
+        )
+        rodape = "🗃️ ModEx - Gerencie seus modos!"
+    else:
+        titulo = "**📝 Edit Existing Modes**"
+        descricao = (
+            "Here are the modes already created in your server.\n\n"
+            "➡️ To edit a mode, type its **name** using `#modename`.\n"
+            "⚠️ Warning: once saved, the previous data will be **overwritten** with the new settings.\n\n"
+            "If you don’t see the desired mode, make sure it was created correctly with `!create`."
+        )
+        rodape = "🗃️ ModEx - Manage your modes!"
+
+    if modos:
+        lista_modos = "\n".join(
+            [f"- **{modo['nome']}**" for modo in modos.values() if "nome" in modo]
+        )
+    else:
+        lista_modos = "❌ Nenhum modo encontrado." if language == "pt" else "❌ No modes found."
+
+    embed = discord.Embed(title=titulo, description=descricao, color=discord.Color.orange())
+    embed.add_field(
+        name="**Modos disponíveis:**" if language == "pt" else "**Available modes:**",
+        value=lista_modos,
+        inline=False,
+    )
+    embed.set_footer(text=rodape)
+    return embed
+
+import discord
+
+def get_invalid_mode_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="**⛔ Em Desenvolvimento!**",
-            description=(
-                "Este recurso ainda está sendo desenvolvido. Aguarde a finalização da etapa de criação."
-            ),
+            title="❌ Modo não encontrado",
+            description="O nome informado não corresponde a nenhum modo existente. "
+                        "Verifique a lista no embed anterior e tente novamente usando `#nomedomodo`.",
             color=discord.Color.red()
         )
-        embed.set_footer(text="✨ Ajude o dev com uma estrela no GitHub! Confere lá em !Sobre")
     else:
         embed = discord.Embed(
-            title="**⛔ Under Development!**",
-            description=(
-                "Still cooking! We’re finishing the creation part first"
-            ),
+            title="❌ Mode not found",
+            description="The name provided does not match any existing mode. "
+                        "Check the list in the previous embed and try again using `#modename`.",
             color=discord.Color.red()
         )
-        embed.set_footer(text="✨ Support the dev with a GitHub star! Check it out in !About")
+    return embed
+
+def get_mode_selected_embed(mode_name, language,):
+    if language == "pt":
+        embed = discord.Embed(
+            title="✅ Modo selecionado!",
+            description=f"O modo **{mode_name}** foi encontrado e será aberto para edição.\n\n"
+                        "➡️ Continue seguindo as etapas normalmente para atualizar as configurações.",
+            color=discord.Color.green()
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ Mode selected!",
+            description=f"The mode **{mode_name}** was found and will now enter editing.\n\n"
+                        "➡️ Continue following the steps to update its settings.",
+            color=discord.Color.green()
+        )
     return embed
 
 def get_create_embed(roles, language):
