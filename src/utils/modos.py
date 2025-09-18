@@ -88,3 +88,37 @@ def salvar_recepcao_modo(server_id, modo_id, is_recepcao):
     if server_id in dados and modo_id in dados[server_id]["modos"]:
         dados[server_id]["modos"][modo_id]["recepcao"] = is_recepcao
         salvar_modos(dados)
+
+def esta_em_edicao(server_id, modo_id):
+    dados = carregar_modos()
+    server_id = str(server_id)
+    modo_id = str(modo_id)
+    return (
+        server_id in dados
+        and modo_id in dados[server_id].get("modos", {})
+        and dados[server_id]["modos"][modo_id].get("em_edicao", False)
+    )
+
+def set_em_edicao(server_id, modo_id, valor=True):
+    dados = carregar_modos()
+    server_id = str(server_id)
+    modo_id = str(modo_id)
+    if server_id in dados and modo_id in dados[server_id]["modos"]:
+        dados[server_id]["modos"][modo_id]["em_edicao"] = valor
+        salvar_modos(dados)
+
+def reset_edicao(guild_id: int, user_id: int = None):
+    dados = carregar_modos()
+    guild_str = str(guild_id)
+    
+    if guild_str not in dados:
+        return
+    
+    for mid, m in dados[guild_str].get("modos", {}).items():
+        if user_id:
+            if m.get("criador") == str(user_id):
+                m["em_edicao"] = False
+        else:
+            m["em_edicao"] = False
+    
+    salvar_modos(dados)

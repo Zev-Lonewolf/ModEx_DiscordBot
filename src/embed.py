@@ -127,7 +127,10 @@ def get_functions_embed(language):
     return embed
 
 def get_roles_embed(roles, language):
-    filtered_roles = [role for role in roles if role.name != "@everyone"]
+    filtered_roles = []
+    for role in roles:
+        if isinstance(role, discord.Role) and role.name != "@everyone":
+            filtered_roles.append(role)
 
     if language == "pt":
         if filtered_roles:
