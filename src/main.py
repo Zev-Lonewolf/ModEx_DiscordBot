@@ -11,7 +11,10 @@ from utils.modos import (
     carregar_modos,
     salvar_channels_modo,
     atribuir_recepcao,
-    reset_edicao
+    reset_edicao,
+    atualizar_permissoes_canal,
+    substituir_cargo,
+    validar_canais
 )
 from embed import (
     get_language_embed,
@@ -39,7 +42,8 @@ from embed import (
     get_reception_replaced_embed,
     get_reception_skipped_embed,
     get_finish_mode_embed,
-    get_channel_reset_warning_embed
+    get_channel_conflict_warning_embed,
+    get_channel_removed_warning_embed
 )
 
 # ----------------- BOT & INTENTS -----------------
@@ -151,7 +155,8 @@ flow = {
             "get_reception_replaced_embed", 
             "get_reception_skipped_embed", 
             "get_reception_error_embed",
-            "get_channel_reset_warning_embed"
+            "get_channel_conflict_warning_embed",
+            "get_channel_removed_warning_embed"
         ]
     },
     "get_reception_assigned_embed": {
@@ -166,7 +171,11 @@ flow = {
         "back": "get_reception_mode_question_embed",
         "next": "get_finish_mode_embed"
     },
-    "get_channel_reset_warning_embed": {
+    "get_channel_conflict_warning_embed": {
+        "back": "get_reception_mode_question_embed",
+        "next": "get_finish_mode_embed"
+    },
+    "get_channel_removed_warning_embed": {
         "back": "get_reception_mode_question_embed",
         "next": "get_finish_mode_embed"
     },
@@ -200,6 +209,8 @@ estado_to_embed = {
     "selecionando_canal": "get_channel_select_embed",
     "canal_salvo": "get_channel_saved_embed",
     "canal_invalido": "get_invalid_channel_embed",
+    "canal_conflito": "get_channel_conflict_warning_embed",
+    "canal_removido": "get_channel_removed_warning_embed",
     "modo_recepcao_pergunta": "get_reception_mode_question_embed",
     "modo_recepcao_atribuido": "get_reception_assigned_embed",
     "modo_recepcao_trocado": "get_reception_replaced_embed",
@@ -231,12 +242,13 @@ EMBEDS = {
     "get_channel_select_embed": get_channel_select_embed,
     "get_channel_saved_embed": get_channel_saved_embed,
     "get_invalid_channel_embed": get_invalid_channel_embed,
+    "get_channel_conflict_warning_embed": get_channel_conflict_warning_embed,
+    "get_channel_removed_warning_embed": get_channel_removed_warning_embed,
     "get_reception_mode_question_embed": get_reception_mode_question_embed,
     "get_reception_assigned_embed": get_reception_assigned_embed,
     "get_reception_replaced_embed": get_reception_replaced_embed,
     "get_reception_skipped_embed": get_reception_skipped_embed,
     "get_finish_mode_embed": get_finish_mode_embed,
-    "get_channel_reset_warning_embed": get_channel_reset_warning_embed
 }
 
 # ----------------- FUNÇÕES AUXILIARES -----------------
@@ -520,11 +532,10 @@ async def on_member_join(member):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    # Ignorar reações do próprio bot
+    # Ignora reações do próprio bot
     if payload.user_id == bot.user.id:
         return
 
-    # Tentativa de blindagem caso guild ou canal não existam
     guild = bot.get_guild(payload.guild_id)
     canal = bot.get_channel(payload.channel_id)
     if not guild or not canal:
@@ -532,11 +543,13 @@ async def on_raw_reaction_add(payload):
 
     user_id = payload.user_id
     guild_id = payload.guild_id
+    idioma = obter_idioma(guild_id)
     current = user_progress.get(guild_id, {}).get(user_id)
 
     # -------------------- VOLTAR --------------------
     if payload.emoji.name == "🔙":
         await go_back(canal, user_id, guild_id)
+        return
         
     # -------------------- AVANÇAR --------------------
     elif payload.emoji.name == "✅":
@@ -555,77 +568,164 @@ async def on_raw_reaction_add(payload):
             if not modo:
                 return
 
-            cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
-            canais_ids = modo.get("channels", [])
-            role = guild.get_role(cargo_id) if cargo_id else None
+            novo_cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
+            cargo_antigo_id, novo_cargo_id = substituir_cargo(modos, guild_id, modo_id, novo_cargo_id)
 
-            if role:
-                for cid in canais_ids:
-                    ch = guild.get_channel(int(cid))
-                    if ch:
-                        try:
-                            overwrites = ch.overwrites.copy()
-                            overwrites[guild.default_role] = discord.PermissionOverwrite(view_channel=False)
-                            overwrites[role] = discord.PermissionOverwrite(view_channel=True)
-                            await ch.edit(overwrites=overwrites)
-                        except Exception as e:
-                            print(f"[ERROR] Falha ao atualizar permissões de {ch}: {e}")
+            salvar_modos(modos)
+            MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = modos[str(guild_id)]["modos"][modo_id]
 
-            recepcao_anterior = atribuir_recepcao(guild_id, modo_id)
+            # Normalizar canais
+            raw_canais = modo.get("channels", []) or []
+            canais_existentes = []
+            for c in raw_canais:
+                try:
+                    cid = int(c.id) if hasattr(c, "id") else int(c)
+                except Exception:
+                    try:
+                        cid = int(str(c))
+                    except Exception:
+                        continue
+                canais_existentes.append(str(cid))
 
+            # Validar canais
+            try:
+                canais_validos, canais_invalidos = validar_canais(guild, canais_existentes)
+            except Exception as e:
+                print(f"[ERROR] validar_canais falhou: {e}")
+                embed = get_channel_removed_warning_embed(idioma, ["(erro ao validar canais)"])
+                await canal.send(embed=embed)
+                return
+
+            canais_removidos, canais_conflitantes = [], []
+            for cid in canais_invalidos:
+                ch = guild.get_channel(int(cid))
+                if ch:
+                    canais_conflitantes.append(cid)
+                else:
+                    canais_removidos.append(cid)
+
+            if canais_removidos:
+                embed = get_channel_removed_warning_embed(idioma, canais_removidos)
+                await canal.send(embed=embed)
+                return
+            if canais_conflitantes:
+                embed = get_channel_conflict_warning_embed(idioma, canais_conflitantes)
+                await canal.send(embed=embed)
+                return
+
+            novo_role = guild.get_role(novo_cargo_id) if novo_cargo_id else None
+
+            # Atualizar permissões nos canais válidos
+            if novo_role:
+                for cid in canais_validos:
+                    try:
+                        ch = guild.get_channel(int(cid))
+                        if ch:
+                            await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
+                    except Exception as e:
+                        print(f"[WARN] falha ao atualizar permissões no canal {cid}: {e}")
+
+                # Atribuir recepção com overwrite
+                recepcao_anterior = await atribuir_recepcao(
+                    guild,
+                    modo_id,
+                    canais_validos,
+                    novo_role,
+                    overwrite=em_edicao.get(user_id, False)
+                )
+            else:
+                recepcao_anterior = await atribuir_recepcao(guild, modo_id, [], None, overwrite=False)
+
+            # Próximo passo com embed adequado
             if recepcao_anterior:
                 old_role_id = modos.get(str(guild_id), {}).get("modos", {}).get(recepcao_anterior, {}).get("roles", [None])[0]
                 old_role = guild.get_role(int(old_role_id)) if old_role_id else None
                 old_name = old_role.name if old_role else "N/A"
-                await go_next(canal, user_id, guild_id, resultado=("get_reception_replaced_embed", old_name, role.name))
+                await go_next(canal, user_id, guild_id, resultado=("get_reception_replaced_embed", old_name, novo_role.name if novo_role else "N/A"))
             else:
-                await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", role.name))
+                await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", novo_role.name if novo_role else "N/A"))
 
-            # Resetar flag ao finalizar edição
-            dados = carregar_modos()
-            if str(guild_id) in dados and "modos" in dados[str(guild_id)] and modo_id in dados[str(guild_id)]["modos"]:
-                dados[str(guild_id)]["modos"][modo_id]["em_edicao"] = False
-                salvar_modos(dados)
-                MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = dados[str(guild_id)]["modos"][modo_id]
+            # Resetar flag em_edicao
+            try:
+                modos[str(guild_id)]["modos"][modo_id]["em_edicao"] = False
+                salvar_modos(modos)
+                MODOS_CACHE[str(guild_id)]["modos"][modo_id] = modos[str(guild_id)]["modos"][modo_id]
+            except Exception as e:
+                print(f"[WARN] não foi possível resetar 'em_edicao': {e}")
 
         else:
             await go_next(canal, user_id, guild_id)
 
+
     # -------------------- PULAR --------------------
-    elif payload.emoji.name == "❌":
-        if current == "get_reception_mode_question_embed":
-            modo_id = modo_ids.get(user_id)
-            if not modo_id:
-                return
+    elif payload.emoji.name == "❌" and current == "get_reception_mode_question_embed":
+        modo_id = modo_ids.get(user_id)
+        if not modo_id:
+            return
 
-            modos = carregar_modos()
-            modo = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id)
+        modos = carregar_modos()
+        modo = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id)
+        if not modo:
+            return
 
-            cargo_id = int(modo["roles"][0]) if modo and modo.get("roles") else None
-            canais_ids = modo.get("channels", []) if modo else []
-            role = guild.get_role(cargo_id) if cargo_id else None
+        cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
+        raw_canais = modo.get("channels", []) or []
+        canais_existentes = []
+        for c in raw_canais:
+            try:
+                cid = int(c.id) if hasattr(c, "id") else int(c)
+            except Exception:
+                try:
+                    cid = int(str(c))
+                except Exception:
+                    continue
+            canais_existentes.append(str(cid))
 
-            if role:
-                for cid in canais_ids:
+        role = guild.get_role(cargo_id) if cargo_id else None
+
+        try:
+            canais_validos, canais_invalidos = validar_canais(guild, canais_existentes)
+        except Exception as e:
+            print(f"[ERROR] validar_canais falhou: {e}")
+            embed = get_channel_removed_warning_embed(idioma, ["(erro ao validar canais)"])
+            await canal.send(embed=embed)
+            return
+
+        canais_removidos, canais_conflitantes = [], []
+        for cid in canais_invalidos:
+            ch = guild.get_channel(int(cid))
+            if ch:
+                canais_conflitantes.append(cid)
+            else:
+                canais_removidos.append(cid)
+
+        if canais_removidos:
+            embed = get_channel_removed_warning_embed(idioma, canais_removidos)
+            await canal.send(embed=embed)
+            return
+        if canais_conflitantes:
+            embed = get_channel_conflict_warning_embed(idioma, canais_conflitantes)
+            await canal.send(embed=embed)
+            return
+
+        if role:
+            for cid in canais_validos:
+                try:
                     ch = guild.get_channel(int(cid))
                     if ch:
-                        try:
-                            overwrites = ch.overwrites.copy()
-                            overwrites[guild.default_role] = discord.PermissionOverwrite(view_channel=False)
-                            overwrites[role] = discord.PermissionOverwrite(view_channel=True)
-                            await ch.edit(overwrites=overwrites)
-                        except Exception as e:
-                            print(f"[ERROR] Falha ao atualizar permissões de {ch} (skip): {e}")
+                        await atualizar_permissoes_canal(ch, role)
+                except Exception as e:
+                    print(f"[WARN] falha ao atualizar permissões no canal {cid}: {e}")
 
-            role_name = role.name if role else "N/A"
-            await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
+        role_name = role.name if role else "N/A"
+        await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
 
-            # Resetar flag ao finalizar edição (skip)
-            dados = carregar_modos()
-            if str(guild_id) in dados and "modos" in dados[str(guild_id)] and modo_id in dados[str(guild_id)]["modos"]:
-                dados[str(guild_id)]["modos"][modo_id]["em_edicao"] = False
-                salvar_modos(dados)
-                MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = dados[str(guild_id)]["modos"][modo_id]
+        try:
+            modos[str(guild_id)]["modos"][modo_id]["em_edicao"] = False
+            salvar_modos(modos)
+            MODOS_CACHE[str(guild_id)]["modos"][modo_id] = modos[str(guild_id)]["modos"][modo_id]
+        except Exception as e:
+            print(f"[WARN] não foi possível resetar 'em_edicao' ao pular: {e}")
 
 @bot.event
 async def on_message(message):
@@ -639,7 +739,6 @@ async def on_message(message):
     current = user_progress.get(guild_id, {}).get(user_id)
 
     dados = carregar_modos()
-    # Garantir estrutura do guild
     if guild_id and str(guild_id) not in dados:
         dados[str(guild_id)] = {"modos": {}}
 
@@ -822,9 +921,10 @@ async def on_message(message):
             criando_modo[user_id] = "canal_invalido"
             return
 
-        canais_invalidos = [ch.name for ch in channels if ch.overwrites]
-        if canais_invalidos:
-            embed = get_channel_reset_warning_embed(idioma, canais_invalidos)
+        # Validação de canais removidos (apagados)
+        canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
+        if canais_removidos:
+            embed = get_channel_removed_warning_embed(idioma, canais_removidos)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
@@ -832,21 +932,44 @@ async def on_message(message):
             criando_modo[user_id] = "erro_canal"
             return
 
-        # Salvar canais no modo
+        # Validação de canais em conflito (já usados em outro modo / sobrescritos)
+        canais_conflito = []
+        if not em_edicao.get(user_id, False):
+            canais_conflito = [str(ch.id) for ch in channels if ch.overwrites]
+
+        if canais_conflito:
+            embed = get_channel_conflict_warning_embed(idioma, canais_conflito)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            await msg.add_reaction("🔙")
+            mensagem_voltar_ids[str(guild_id)] = msg.id
+            criando_modo[user_id] = "erro_canal"
+            return
+
         salvar_channels_modo(guild_id, modo_ids[user_id], channels)
         salvar_modos(carregar_modos())
 
+        guild = message.guild
+        canais_validos = list(message.channel_mentions)
+
         # -------------------- ATRIBUIR RECEPÇÃO --------------------
         try:
-            atribuir_recepcao(guild_id, modo_ids[user_id], channels)
+            recepcao_anterior = await atribuir_recepcao(
+                guild,
+                modo_ids[user_id],
+                canais_validos,
+                None,
+                overwrite=False
+            )
         except Exception as e:
             print(f"[ERROR] atribuir_recepcao falhou: {e}")
 
-        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
+        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in canais_validos]))
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
         await msg.add_reaction("🔙")
         await msg.add_reaction("✅")
+
         user_progress.setdefault(guild_id, {})[user_id] = "get_channel_saved_embed"
         criando_modo[user_id] = "canal_salvo"
         mensagem_voltar_ids[str(guild_id)] = msg.id

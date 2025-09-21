@@ -1,5 +1,6 @@
 import json
 import os
+import discord
 from config import CAMINHO_MODOS
 import time
 
@@ -66,11 +67,12 @@ def salvar_channels_modo(server_id, modo_id, channels):
         dados[server_id]["modos"][modo_id]["channels"] = [str(ch.id) for ch in channels]
         salvar_modos(dados)
 
-def atribuir_recepcao(server_id, modo_id):
+async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
     dados = carregar_modos()
-    server_id = str(server_id)
+    server_id = str(guild.id)
     modo_id = str(modo_id)
     recepcao_anterior = None
+
     if server_id in dados:
         for mid, modo in dados[server_id].get("modos", {}).items():
             if modo.get("recepcao") and mid != modo_id:
@@ -79,6 +81,14 @@ def atribuir_recepcao(server_id, modo_id):
         if modo_id in dados[server_id]["modos"]:
             dados[server_id]["modos"][modo_id]["recepcao"] = True
         salvar_modos(dados)
+
+    if role:
+        for ch in canais:
+            try:
+                await atualizar_permissoes_canal(ch, role, overwrite=overwrite)
+            except Exception as e:
+                print(f"[WARN] falha ao atualizar permissões no canal {ch.id}: {e}")
+
     return recepcao_anterior
 
 def salvar_recepcao_modo(server_id, modo_id, is_recepcao):
@@ -122,3 +132,48 @@ def reset_edicao(guild_id: int, user_id: int = None):
             m["em_edicao"] = False
     
     salvar_modos(dados)
+
+async def atualizar_permissoes_canal(canal, role, overwrite=False):
+    try:
+        if overwrite:
+            await canal.edit(overwrites={})
+
+        perms = canal.overwrites_for(role)
+        perms.view_channel = True
+        perms.send_messages = True
+        perms.connect = True
+        perms.speak = True
+
+        await canal.set_permissions(role, overwrite=perms)
+
+    except Exception as e:
+        print(f"[ERROR] Falha ao atualizar permissões em {canal.name}: {e}")
+
+def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
+    modo = modos[str(guild_id)]["modos"][modo_id]
+    cargo_antigo_id = modo.get("roles", [None])[0]
+
+    modo["roles"] = [novo_cargo_id]
+    return cargo_antigo_id, novo_cargo_id
+
+def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
+
+    canais_validos = []
+    canais_invalidos = []
+
+    for ch_id in canais_selecionados:
+        ch = guild.get_channel(ch_id)
+        if not ch:
+            canais_invalidos.append(str(ch_id))
+            continue
+
+        if ch_id in canais_existentes_no_modo_atual:
+            canais_validos.append(ch_id)
+            continue
+
+        if ch.permissions_for(guild.me).manage_channels:
+            canais_validos.append(ch_id)
+        else:
+            canais_invalidos.append(ch.name)
+
+    return canais_validos, canais_invalidos

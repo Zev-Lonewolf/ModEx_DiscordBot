@@ -382,6 +382,8 @@ def get_name_conflict_embed(language, nome_modo):
     return embed
 
 def get_role_select_embed(language, roles):
+    roles = [r for r in roles if hasattr(r, "permissions") and r.permissions.manage_roles and r.name != "@everyone"]
+
     if language == "pt":
         embed = discord.Embed(
             title="🚧 Criação de Modo (etapa 2 de 5)",
@@ -405,10 +407,13 @@ def get_role_select_embed(language, roles):
         )
         embed.set_footer(text="Mention the role or type its name. Ex: @Staff")
 
-    role_list = "\n".join([f"- {role.name}" for role in roles if hasattr(role, "name")])
-    embed.add_field(name="Available roles:" if language != "pt" else "Cargos disponíveis:", 
-                    value=role_list or ("Nenhum cargo encontrado." if language == "pt" else "No roles found."), 
-                    inline=False)
+    role_list = "\n".join([f"- {role.name}" for role in roles])
+    embed.add_field(
+        name="Cargos disponíveis:" if language == "pt" else "Available roles:",
+        value=role_list or ("Nenhum cargo encontrado." if language == "pt" else "No roles found."),
+        inline=False
+    )
+
     return embed
 
 def get_role_saved_embed(language, role_name):
@@ -500,6 +505,59 @@ def get_invalid_channel_embed(language):
         )
     return embed
 
+def get_channel_conflict_warning_embed(language, conflict_channels, modo_origem=""):
+    canais_str = ", ".join([f"<#{cid}>" for cid in conflict_channels])
+
+    if language == "pt":
+        embed = discord.Embed(
+            title="⚠️ Conflito de Canais Detectado",
+            description=(
+                f"Os seguintes canais já estão associados a **outro modo**: {canais_str}.\n\n"
+                "👉 Para continuar, você deve **escolher outros canais** ou **removê-los do modo atual** antes de prosseguir.\n"
+                + (f"\n🔗 Atualmente pertencem ao modo: **{modo_origem}**" if modo_origem else "")
+            ),
+            color=discord.Color.orange()
+        )
+        embed.set_footer(text="🚫 Um canal só pode pertencer a um modo por vez.")
+    else:
+        embed = discord.Embed(
+            title="⚠️ Channel Conflict Detected",
+            description=(
+                f"The following channels are already associated with **another mode**: {canais_str}.\n\n"
+                "👉 To proceed, you must **choose different channels** or **remove them from the current mode** first.\n"
+                + (f"\n🔗 Currently assigned to mode: **{modo_origem}**" if modo_origem else "")
+            ),
+            color=discord.Color.orange()
+        )
+        embed.set_footer(text="🚫 A channel can only belong to one mode at a time.")
+    return embed
+
+def get_channel_removed_warning_embed(language, removed_channels):
+    canais_str = ", ".join([f"<#{cid}>" for cid in removed_channels])
+
+    if language == "pt":
+        embed = discord.Embed(
+            title="❌ Canais Removidos Detectados",
+            description=(
+                f"Os seguintes canais não existem mais no servidor: {canais_str}.\n\n"
+                "👉 Para continuar, você deve **atualizar o modo** e remover os canais que foram apagados."
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="⚠️ Canais apagados precisam ser substituídos para evitar erros.")
+    else:
+        embed = discord.Embed(
+            title="❌ Removed Channels Detected",
+            description=(
+                f"The following channels no longer exist in the server: {canais_str}.\n\n"
+                "👉 To continue, you must **update the mode** and remove the deleted channels."
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(text="⚠️ Deleted channels must be replaced to avoid errors.")
+    return embed
+
+
 def get_reception_mode_question_embed(language):
     if language == "pt":
         embed = discord.Embed(
@@ -581,30 +639,6 @@ def get_reception_error_embed(language):
                 "👉 Make sure the bot has sufficient permissions (manage channels/roles)."
             ),
             color=discord.Color.red()
-        )
-    return embed
-
-def get_channel_reset_warning_embed(language, canais_invalidos):
-    canais_str = ", ".join(canais_invalidos)
-    if language == "pt":
-        embed = discord.Embed(
-            title="⚠️ Canais inválidos",
-            description=(
-                f"Os seguintes canais são inválidos ou não podem ser usados:\n"
-                f"**{canais_str}**\n\n"
-                "O modo será reiniciado para corrigir os canais."
-            ),
-            color=discord.Color.orange()
-        )
-    else:
-        embed = discord.Embed(
-            title="⚠️ Invalid channels",
-            description=(
-                f"The following channels are invalid or cannot be used:\n"
-                f"**{canais_str}**\n\n"
-                "The mode will be reset to fix the channels."
-            ),
-            color=discord.Color.orange()
         )
     return embed
 
