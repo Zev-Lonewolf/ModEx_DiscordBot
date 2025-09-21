@@ -71,6 +71,14 @@ MODOS_CACHE = carregar_modos()
 
 # ----------------- FLUXO DE EMBEDS -----------------
 flow = {
+    "get_language_embed": {
+        "next": "get_greeting_embed",
+        "back": None
+    },
+    "get_greeting_embed": {
+        "next": "get_setup_embed",
+        "back": None
+    },
     "get_setup_embed": {
         "next": None,
         "back": None
@@ -191,6 +199,8 @@ flow = {
 
 # ----------------- MAPEAMENTO ESTADO ↔ EMBED -----------------
 estado_to_embed = {
+    "idioma": "get_language_embed",
+    "apresentacao": "get_greeting_embed",
     "setup": "get_setup_embed",
     "about": "get_about_embed",
     "functions": "get_functions_embed",
@@ -541,10 +551,35 @@ async def on_raw_reaction_add(payload):
     if not guild or not canal:
         return
 
+    guild_id = str(payload.guild_id)
     user_id = payload.user_id
-    guild_id = payload.guild_id
     idioma = obter_idioma(guild_id)
     current = user_progress.get(guild_id, {}).get(user_id)
+
+    # -------------------- SELEÇÃO DE IDIOMA --------------------
+    if mensagem_idioma_id.get(guild_id) == payload.message_id:
+        if payload.emoji.name == "🇧🇷":
+            definir_idioma(payload.guild_id, "pt")
+            idioma = "pt"
+        elif payload.emoji.name == "🇺🇸":
+            definir_idioma(payload.guild_id, "en")
+            idioma = "en"
+        else:
+            return
+
+        try:
+            msg = await canal.fetch_message(payload.message_id)
+            await msg.delete()
+        except Exception as e:
+            print(f"[ERRO] Não foi possível deletar a mensagem de idioma: {e}")
+
+        try:
+            embed_greeting = get_greeting_embed(idioma)
+            await canal.send(embed=embed_greeting)
+        except Exception as e:
+            print(f"[ERRO] Não foi possível enviar o embed de saudação: {e}")
+
+        return
 
     # -------------------- VOLTAR --------------------
     if payload.emoji.name == "🔙":
@@ -1105,7 +1140,8 @@ async def idioma(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
 
-    embed = get_language_embed()
+    idioma = obter_idioma(ctx.guild.id)
+    embed = get_language_embed(idioma)
     msg = await ctx.send(embed=embed)
 
     await msg.add_reaction("🇺🇸")

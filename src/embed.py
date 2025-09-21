@@ -1,7 +1,7 @@
 import discord
 from utils.modos import carregar_modos
 
-def get_language_embed():
+def get_language_embed(language):
     embed = discord.Embed(
         title="**🌎 Choose your language | Escolha seu idioma**",
         description="React with the 🇺🇸 emoji for **English** or/ou reaja com o emoji 🇧🇷 para **Português (BR)**",
