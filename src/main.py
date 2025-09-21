@@ -354,10 +354,10 @@ async def go_next(canal, user_id, guild_id, resultado=None):
 
     embed = None
     try:
-        if next_embed_name in ("get_roles_embed", "get_create_embed", "get_role_select_embed"):
-            roles = [role for role in canal.guild.roles if not role.is_default()]
+        if next_embed_name == "get_role_select_embed":
+            roles = [role for role in canal.guild.roles if role.name != "@everyone"]
             try:
-                embed = embed_func(roles, idioma)
+                embed = embed_func(idioma, roles)
             except TypeError:
                 try:
                     embed = embed_func(roles, idioma)

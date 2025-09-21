@@ -382,38 +382,29 @@ def get_name_conflict_embed(language, nome_modo):
     return embed
 
 def get_role_select_embed(language, roles):
-    roles = [r for r in roles if hasattr(r, "permissions") and r.permissions.manage_roles and r.name != "@everyone"]
+    filtered_roles = [role for role in roles if role.name != "@everyone"]
 
     if language == "pt":
-        embed = discord.Embed(
-            title="🚧 Criação de Modo (etapa 2 de 5)",
-            description=(
-                "Escolha qual cargo será atribuído a este modo.\n\n"
-                "📌 _Mencione o cargo ou digite o nome exato do cargo._\n"
-                "⚠️ Você precisa ter permissão para gerenciar cargos."
-            ),
-            color=discord.Color.green()
+        titulo = "**🚧 Criação de Modo (etapa 2 de 5)**"
+        descricao = (
+            "Escolha qual cargo será atribuído a este modo.\n\n"
+            "📌 _Mencione o cargo ou digite o nome exato do cargo._"
         )
-        embed.set_footer(text="Mencione o cargo ou digite o nome. Ex: @Staff")
+        rodape = "Mencione o cargo ou digite o nome. Ex: @Staff"
+        cargos_texto = "\n".join([f"- **{role.name}**" for role in filtered_roles]) if filtered_roles else "❌ Nenhum cargo encontrado."
+
     else:
-        embed = discord.Embed(
-            title="🚧 Mode Creation (step 2 of 5)",
-            description=(
-                "Choose which role will be assigned to this mode.\n\n"
-                "📌 _Mention the role or type the exact role name._\n"
-                "⚠️ You need permission to manage roles."
-            ),
-            color=discord.Color.green()
+        titulo = "**🚧 Mode Creation (step 2 of 5)**"
+        descricao = (
+            "Choose which role will be assigned to this mode.\n\n"
+            "📌 _Mention the role or type the exact role name._"
         )
-        embed.set_footer(text="Mention the role or type its name. Ex: @Staff")
+        rodape = "Mention the role or type its name. Ex: @Staff"
+        cargos_texto = "\n".join([f"- **{role.name}**" for role in filtered_roles]) if filtered_roles else "❌ No roles found."
 
-    role_list = "\n".join([f"- {role.name}" for role in roles])
-    embed.add_field(
-        name="Cargos disponíveis:" if language == "pt" else "Available roles:",
-        value=role_list or ("Nenhum cargo encontrado." if language == "pt" else "No roles found."),
-        inline=False
-    )
-
+    embed = discord.Embed(title=titulo, description=descricao, color=discord.Color.green())
+    embed.add_field(name="**Cargos disponíveis:**" if language == "pt" else "**Available roles:**", value=cargos_texto, inline=False)
+    embed.set_footer(text=rodape)
     return embed
 
 def get_role_saved_embed(language, role_name):
