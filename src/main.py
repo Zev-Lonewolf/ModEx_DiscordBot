@@ -526,14 +526,18 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_member_join(member):
-    guild_id = str(member.guild.id)
+    guild = member.guild
+    guild_id = str(guild.id)
     server_modos = carregar_modos().get(guild_id, {}).get("modos", {})
     modo_recepcao = next((m for m in server_modos.values() if m.get("recepcao")), None)
-    if not modo_recepcao: return
+    if not modo_recepcao:
+        return
     roles = modo_recepcao.get("roles", [])
-    if not roles: return
-    role = member.guild.get_role(int(roles[0]))
-    if not role: return
+    if not roles:
+        return
+    role = guild.get_role(int(roles[0]))
+    if not role:
+        return
     try:
         await member.add_roles(role)
         print(f"[INFO] Cargo de recepção '{role.name}' atribuído a {member.name}")
@@ -551,18 +555,18 @@ async def on_raw_reaction_add(payload):
     if not guild or not canal:
         return
 
-    guild_id = str(payload.guild_id)
     user_id = payload.user_id
+    guild_id = payload.guild_id # Principal função para a reação de OK funcionar, não mexa. :D
     idioma = obter_idioma(guild_id)
     current = user_progress.get(guild_id, {}).get(user_id)
 
     # -------------------- SELEÇÃO DE IDIOMA --------------------
     if mensagem_idioma_id.get(guild_id) == payload.message_id:
         if payload.emoji.name == "🇧🇷":
-            definir_idioma(payload.guild_id, "pt")
+            definir_idioma(guild_id, "pt")
             idioma = "pt"
         elif payload.emoji.name == "🇺🇸":
-            definir_idioma(payload.guild_id, "en")
+            definir_idioma(guild_id, "en")
             idioma = "en"
         else:
             return
@@ -1147,7 +1151,7 @@ async def idioma(ctx):
     await msg.add_reaction("🇺🇸")
     await msg.add_reaction("🇧🇷")
 
-    mensagem_idioma_id[str(ctx.guild.id)] = msg.id
+    mensagem_idioma_id[ctx.guild.id] = msg.id
     resposta_enviada.discard(str(ctx.guild.id))
 
 @bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
