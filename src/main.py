@@ -417,6 +417,16 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         criando_modo[user_id] = "nome_salvo"
     elif next_embed_name == "get_finish_mode_embed":
         criando_modo[user_id] = "finalizado"
+
+        guild_id_str = str(guild_id)
+        if guild_id_str in MODOS_CACHE:
+            modos_guild = MODOS_CACHE[guild_id_str].get("modos", {})
+            modo_id = modo_ids.get(user_id)
+            if modo_id and modo_id in modos_guild:
+                modos_guild[modo_id]["finalizado"] = True
+                modos_guild[modo_id]["em_edicao"] = False
+                salvar_modos(MODOS_CACHE)
+
     elif next_embed_name == "get_role_select_embed":
         criando_modo[user_id] = "selecionando_cargo"
     elif next_embed_name == "get_channel_select_embed":

@@ -30,7 +30,9 @@ def criar_modo(server_id, user_id, nome_modo):
         "roles": [],
         "channels": [],
         "recepcao": False,
-        "criador": str(user_id)
+        "criador": str(user_id),
+        "em_edicao": True,
+        "finalizado": False
     }
     salvar_modos(dados)
     return modo_id
@@ -178,25 +180,21 @@ def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
     return canais_validos, canais_invalidos
 
 def limpar_modos_incompletos(guild_id):
-    guild_id = str(guild_id)
+    guild_id_str = str(guild_id)
+    dados = carregar_modos()
+    if guild_id_str not in dados:
+        return
 
-    modos = carregar_modos()
-    guild_data = modos.get(guild_id, {"modos": {}})
+    modos_guild = dados[guild_id_str].get("modos", {})
+    modos_para_remover = []
 
-    modos_validos = {}
-    for modo_id, dados in guild_data.get("modos", {}).items():
-        if (
-            dados.get("roles")
-            and dados.get("channels")
-            and "nome" in dados
-            and "criador" in dados
-            and dados.get("em_edicao") is False
-        ):
-            modos_validos[modo_id] = dados
+    for modo_id, modo in modos_guild.items():
+        if not modo.get("em_edicao", False) and not modo.get("finalizado", False):
+            modos_para_remover.append(modo_id)
 
-    guild_data["modos"] = modos_validos
-    modos[guild_id] = guild_data
-    salvar_modos(modos)
+    for modo_id in modos_para_remover:
+        modos_guild.pop(modo_id, None)
 
-    if guild_id in MODOS_CACHE:
-        MODOS_CACHE[guild_id]["modos"] = modos_validos
+    dados[guild_id_str]["modos"] = modos_guild
+    MODOS_CACHE[guild_id_str] = dados[guild_id_str]
+    salvar_modos(dados)
