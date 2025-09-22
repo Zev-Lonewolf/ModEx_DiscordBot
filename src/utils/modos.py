@@ -158,22 +158,22 @@ def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
     return cargo_antigo_id, novo_cargo_id
 
 def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
-
     canais_validos = []
     canais_invalidos = []
 
     for ch_id in canais_selecionados:
-        ch = guild.get_channel(ch_id)
+        ch_id_str = str(ch_id)
+        ch = guild.get_channel(int(ch_id))
         if not ch:
-            canais_invalidos.append(str(ch_id))
+            canais_invalidos.append(ch_id_str)
             continue
 
-        if ch_id in canais_existentes_no_modo_atual:
-            canais_validos.append(ch_id)
+        if ch_id_str in canais_existentes_no_modo_atual:
+            canais_validos.append(ch_id_str)
             continue
 
         if ch.permissions_for(guild.me).manage_channels:
-            canais_validos.append(ch_id)
+            canais_validos.append(ch_id_str)
         else:
             canais_invalidos.append(ch.name)
 

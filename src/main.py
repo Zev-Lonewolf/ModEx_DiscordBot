@@ -556,7 +556,7 @@ async def on_member_join(member):
         print(f"[INFO] Cargo de recepção '{role.name}' atribuído a {member.name}")
     except Exception as e:
         print(f"[ERROR] Falha ao atribuir cargo de recepção: {e}")
-
+        
 @bot.event
 async def on_raw_reaction_add(payload):
     # Ignora reações do próprio bot
@@ -569,7 +569,7 @@ async def on_raw_reaction_add(payload):
         return
 
     user_id = payload.user_id
-    guild_id = payload.guild_id # Principal função para a reação de OK funcionar, não mexa. :D
+    guild_id = payload.guild_id  # Principal função para a reação de OK funcionar, não mexa. :D
     idioma = obter_idioma(guild_id)
     current = user_progress.get(guild_id, {}).get(user_id)
 
@@ -602,7 +602,7 @@ async def on_raw_reaction_add(payload):
     if payload.emoji.name == "🔙":
         await go_back(canal, user_id, guild_id)
         return
-        
+
     # -------------------- AVANÇAR --------------------
     elif payload.emoji.name == "✅":
         if current == "get_mode_selected_embed":
@@ -639,7 +639,7 @@ async def on_raw_reaction_add(payload):
                         continue
                 canais_existentes.append(str(cid))
 
-            # Validar canais
+            # Validar canais e eliminar conflitos falsos
             try:
                 canais_validos, canais_invalidos = validar_canais(guild, canais_existentes)
             except Exception as e:
@@ -670,12 +670,12 @@ async def on_raw_reaction_add(payload):
             # Atualizar permissões nos canais válidos
             if novo_role:
                 for cid in canais_validos:
-                    try:
-                        ch = guild.get_channel(int(cid))
-                        if ch:
+                    ch = guild.get_channel(int(cid))
+                    if ch:
+                        try:
                             await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
-                    except Exception as e:
-                        print(f"[WARN] falha ao atualizar permissões no canal {cid}: {e}")
+                        except Exception as e:
+                            print(f"[WARN] falha ao atualizar permissões no canal {cid}: {e}")
 
                 # Atribuir recepção com overwrite
                 recepcao_anterior = await atribuir_recepcao(
@@ -707,7 +707,6 @@ async def on_raw_reaction_add(payload):
 
         else:
             await go_next(canal, user_id, guild_id)
-
 
     # -------------------- PULAR --------------------
     elif payload.emoji.name == "❌" and current == "get_reception_mode_question_embed":
@@ -762,12 +761,12 @@ async def on_raw_reaction_add(payload):
 
         if role:
             for cid in canais_validos:
-                try:
-                    ch = guild.get_channel(int(cid))
-                    if ch:
+                ch = guild.get_channel(int(cid))
+                if ch:
+                    try:
                         await atualizar_permissoes_canal(ch, role)
-                except Exception as e:
-                    print(f"[WARN] falha ao atualizar permissões no canal {cid}: {e}")
+                    except Exception as e:
+                        print(f"[WARN] falha ao atualizar permissões no canal {cid}: {e}")
 
         role_name = role.name if role else "N/A"
         await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
@@ -954,7 +953,7 @@ async def on_message(message):
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
         return
-
+    
     # -------------------- ETAPA CANAL / ATRIBUIR RECEPÇÃO --------------------
     if estado == "selecionando_canal":
         channels = list(message.channel_mentions)
@@ -987,7 +986,12 @@ async def on_message(message):
         # Validação de canais em conflito (já usados em outro modo / sobrescritos)
         canais_conflito = []
         if not em_edicao.get(user_id, False):
-            canais_conflito = [str(ch.id) for ch in channels if ch.overwrites]
+            canais_usados = []
+            modos_existentes = carregar_modos().get(str(guild_id), {}).get("modos", {})
+            for mid, m in modos_existentes.items():
+                if m.get("channels"):
+                    canais_usados.extend([str(ch) for ch in m["channels"]])
+            canais_conflito = [str(ch.id) for ch in channels if str(ch.id) in canais_usados]
 
         if canais_conflito:
             embed = get_channel_conflict_warning_embed(idioma, canais_conflito)
@@ -1006,26 +1010,24 @@ async def on_message(message):
 
         # -------------------- ATRIBUIR RECEPÇÃO --------------------
         try:
-            recepcao_anterior = await atribuir_recepcao(
-                guild,
-                modo_ids[user_id],
-                canais_validos,
-                None,
-                overwrite=False
-            )
+            recepcao_anterior = atribuir_recepcao(guild_id, modo_ids[user_id])
+            if recepcao_anterior:
+                print(f"[INFO] Modo de recepção anterior ({recepcao_anterior}) desativado.")
         except Exception as e:
             print(f"[ERROR] atribuir_recepcao falhou: {e}")
 
-        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in canais_validos]))
+        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
         await msg.add_reaction("🔙")
         await msg.add_reaction("✅")
 
         user_progress.setdefault(guild_id, {})[user_id] = "get_channel_saved_embed"
-        criando_modo[user_id] = "canal_salvo"
+        push_embed(user_id, "get_channel_select_embed")
+
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
+        criando_modo[user_id] = "canal_salvo"
         return
 
     # ----------------- CHAMADA DOS COMANDOS -----------------
