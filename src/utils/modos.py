@@ -1,6 +1,6 @@
 import json
 import os
-from config import CAMINHO_MODOS
+from config import CAMINHO_MODOS, MODOS_CACHE
 import time
 
 def carregar_modos():
@@ -176,3 +176,27 @@ def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
             canais_invalidos.append(ch.name)
 
     return canais_validos, canais_invalidos
+
+def limpar_modos_incompletos(guild_id):
+    guild_id = str(guild_id)
+
+    modos = carregar_modos()
+    guild_data = modos.get(guild_id, {"modos": {}})
+
+    modos_validos = {}
+    for modo_id, dados in guild_data.get("modos", {}).items():
+        if (
+            dados.get("roles")
+            and dados.get("channels")
+            and "nome" in dados
+            and "criador" in dados
+            and dados.get("em_edicao") is False
+        ):
+            modos_validos[modo_id] = dados
+
+    guild_data["modos"] = modos_validos
+    modos[guild_id] = guild_data
+    salvar_modos(modos)
+
+    if guild_id in MODOS_CACHE:
+        MODOS_CACHE[guild_id]["modos"] = modos_validos

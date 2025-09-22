@@ -14,7 +14,8 @@ from utils.modos import (
     reset_edicao,
     atualizar_permissoes_canal,
     substituir_cargo,
-    validar_canais
+    validar_canais,
+    limpar_modos_incompletos
 )
 from embed import (
     get_language_embed,
@@ -473,6 +474,8 @@ async def go_back(canal, user_id, guild_id):
         modo_atual[user_id] = None
         modo_ids.pop(user_id, None)
         criando_modo[user_id] = None
+
+        limpar_modos_incompletos(guild_id)
 
     embed_func = EMBEDS.get(last_embed)
     if not embed_func:
@@ -1023,6 +1026,7 @@ async def on_message(message):
 async def setup(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    limpar_modos_incompletos(ctx.guild.id)
     idioma = obter_idioma(ctx.guild.id)
     embed = get_setup_embed(idioma)
     await enviar_embed(ctx.channel, ctx.author.id, embed)

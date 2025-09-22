@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 
+MODOS_CACHE = {}
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
