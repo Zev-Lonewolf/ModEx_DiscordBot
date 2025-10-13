@@ -77,30 +77,32 @@ def get_setup_embed(language):
 def get_about_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="**🤖 Sobre o ModEx**",
+            title="**🤖 SOBRE O MODEX:**",
             description=(
-                "O **ModEx** começou como um projeto simples de **aprendizado em Python**, criado por **Gleidson Gonzaga**, mais conhecido como **Zev Lonewolf**, com o objetivo de tornar seu servidor de RPG **mais versátil** — alternando facilmente entre um ambiente imersivo e outro mais casual.\n\n"
-                "Na sua primeira versão, o bot já era capaz de **alternar entre dois modos** distintos, mas de forma **bastante limitada**. Desde então, Zev tem trabalhado com carinho para transformar o ModEx em algo **flexível e útil para qualquer servidor**.\n\n"
+                "_O projeto **ModEx** teve sua iniciativa durante a abertura do primeiro semestre de **Sistemas de Informação na UFMT**. Seu criador, **Gleidson G. Silva** — mais conhecido como **Zev** — percebeu que diversos servidores acumulavam muitos canais para milhares de funções diferentes._\n\n"
+                "_A ideia inicial era usar **cargos** e **canais privados** para controlar o fluxo e a visualização dos temas/momentos do servidor. Entretanto, como nenhum outro bot fazia esse trabalho — ou apenas de forma manual — **Zev decidiu criar o ModEx** para **criar, editar, alternar e sair de diversos 'modos'** de maneira automática._\n\n"
+                "_Hoje, o projeto conta com a ajuda de **Noa** para **melhorias, expansão e correções** nas linhas de código, garantindo que o ModEx continue **funcionando e evoluindo constantemente**._\n\n"
                 "**🌟 Se quiser apoiar, siga o desenvolvedor e dê uma estrela no projeto!**\n"
                 "- [GitHub de Zev Lonewolf](https://github.com/Zev-Lonewolf)\n"
                 "- [Repositório do ModEx](https://github.com/Zev-Lonewolf/ModEx_DiscordBot)"
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="🔐 Psiu... já ouviu falar no comando !Dev?")
+        embed.set_footer(text="🔐 Sabia que o ModEx começou em um i3 de 2ª e 4GB de RAM?")
     else:
         embed = discord.Embed(
-            title="**🤖 About ModEx**",
+            title="**🤖 ABOUT MODEX:**",
             description=(
-                "**ModEx** started as a simple **Python learning project**, created by **Gleidson Gonzaga**, also known as **Zev Lonewolf**. It was designed to make his RPG server **more versatile** — allowing quick switches between an immersive setting and a more casual one.\n\n"
-                "In its first version, the bot could already **toggle between two distinct modes**, but in a **very limited way**. Since then, Zev has been carefully evolving ModEx into something **flexible and useful for any server**.\n\n"
+                "_The **ModEx** project started during the first semester of **Information Systems at UFMT**. Its creator, **Gleidson G. Silva**, better known as **Zev**, noticed that many servers were cluttered with channels for countless different functions._\n\n"
+                "_The initial idea was to use **roles** and **private channels** to control the flow and visibility of server themes/moments. However, since no other bot did this — or only did it manually — **Zev decided to create ModEx** to **create, edit, switch, and exit various 'modes'** automatically with just a few clicks._\n\n"
+                "_Today, the project counts on the help of **Noa** for **improvements, expansions, and code fixes**, ensuring that ModEx keeps **running smoothly and evolving continuously**._\n\n"
                 "**🌟 If you'd like to support, follow the developer and star the project!**\n"
                 "- [Zev Lonewolf’s GitHub](https://github.com/Zev-Lonewolf)\n"
                 "- [ModEx GitHub Repository](https://github.com/Zev-Lonewolf/ModEx_DiscordBot)"
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="🔐 Psst... have you tried the !Dev command?")
+        embed.set_footer(text="🔐 Did you know ModEx started on a 2nd gen i3 with 4GB of RAM?")
     return embed
 
 def get_functions_embed(language):
