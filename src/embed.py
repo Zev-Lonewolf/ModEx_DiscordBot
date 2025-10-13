@@ -77,7 +77,7 @@ def get_setup_embed(language):
 def get_about_embed(language):
     if language == "pt":
         embed = discord.Embed(
-            title="**🤖 SOBRE O MODEX:**",
+            title="**🤖 Sobre o ModEx:**",
             description=(
                 "_O projeto **ModEx** teve sua iniciativa durante a abertura do primeiro semestre de **Sistemas de Informação na UFMT**. Seu criador, **Gleidson G. Silva** — mais conhecido como **Zev** — percebeu que diversos servidores acumulavam muitos canais para milhares de funções diferentes._\n\n"
                 "_A ideia inicial era usar **cargos** e **canais privados** para controlar o fluxo e a visualização dos temas/momentos do servidor. Entretanto, como nenhum outro bot fazia esse trabalho — ou apenas de forma manual — **Zev decidiu criar o ModEx** para **criar, editar, alternar e sair de diversos 'modos'** de maneira automática._\n\n"
@@ -91,7 +91,7 @@ def get_about_embed(language):
         embed.set_footer(text="🔐 Sabia que o ModEx começou em um i3 de 2ª e 4GB de RAM?")
     else:
         embed = discord.Embed(
-            title="**🤖 ABOUT MODEX:**",
+            title="**🤖 About ModEx:**",
             description=(
                 "_The **ModEx** project started during the first semester of **Information Systems at UFMT**. Its creator, **Gleidson G. Silva**, better known as **Zev**, noticed that many servers were cluttered with channels for countless different functions._\n\n"
                 "_The initial idea was to use **roles** and **private channels** to control the flow and visibility of server themes/moments. However, since no other bot did this — or only did it manually — **Zev decided to create ModEx** to **create, edit, switch, and exit various 'modes'** automatically with just a few clicks._\n\n"
@@ -110,8 +110,8 @@ def get_functions_embed(language):
         embed = discord.Embed(
             title="**⛔ Em Desenvolvimento!**",
             description=(
-                "Recurso em fase de criação. Como o projeto está sempre em expansão, "
-                "a lista final de comandos para os usuários será listada em breve..."
+                "_Recurso em fase de criação. Como o projeto está sempre em expansão,_ "
+                "_a lista final de comandos para os usuários será listada em breve..._"
             ),
             color=discord.Color.red()
         )
@@ -120,8 +120,8 @@ def get_functions_embed(language):
         embed = discord.Embed(
             title="**⛔ Under Development!**",
             description=(
-                "This feature is still being built. Since the project is always expanding, "
-                "the final list of user commands will be listed soon..."
+                "_This feature is still being built. Since the project is always expanding,_ "
+                "_the final list of user commands will be listed soon..._"
             ),
             color=discord.Color.red()
         )
@@ -140,13 +140,13 @@ def get_roles_embed(roles, language):
         else:
             cargos_texto = "❌ Nenhum cargo encontrado. Utilize o comando `!Manual` para adicionar manualmente."
 
-        modos_texto = "🚧 O sistema de modos ainda está em desenvolvimento. Em breve será possível criá-los com o comando !Criar."
+        modos_texto = "_🚧 O sistema de modos ainda está em desenvolvimento. Em breve será possível lista-los._"
 
         embed = discord.Embed(
             title="📌 Cargos e modos do servidor",
             color=discord.Color.blurple()
         )
-        embed.add_field(name="**Cargos encontrados:**", value=cargos_texto, inline=False)
+        embed.add_field(name="**Cargos encontrados (IDs):**", value=cargos_texto, inline=False)
         embed.add_field(name="**Modos encontrados:**", value=modos_texto, inline=False)
         embed.set_footer(text="📇 Organize seus cargos e modos com clareza para uma melhor gestão.")
 
@@ -156,13 +156,13 @@ def get_roles_embed(roles, language):
         else:
             roles_text = "❌ No roles found. Use the `!Manual` command to add them manually."
 
-        modes_text = "🚧 Mode system is under development. Soon you'll be able to create them using the !Create command."
+        modes_text = "🚧 _The modes system is still under development. Soon it will be possible to list them._"
 
         embed = discord.Embed(
             title="📌 Server Roles and Modes",
             color=discord.Color.blurple()
         )
-        embed.add_field(name="**Roles found:**", value=roles_text, inline=False)
+        embed.add_field(name="**Roles found (IDs):**", value=roles_text, inline=False)
         embed.add_field(name="**Modes found:**", value=modes_text, inline=False)
         embed.set_footer(text="📇 Keep your roles and modes organized for better server management.")
     return embed
