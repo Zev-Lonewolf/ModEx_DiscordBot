@@ -85,10 +85,14 @@ async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
 
     if role:
         for ch in canais:
+            if not ch:
+                continue
             try:
                 await atualizar_permissoes_canal(ch, role, overwrite=overwrite)
             except Exception as e:
-                print(f"[WARN] falha ao atualizar permissões no canal {ch.id}: {e}")
+                print(f"[WARN] falha ao atualizar permissões no canal {getattr(ch, 'id', '?')}: {e}")
+    else:
+        print(f"[INFO] Nenhum cargo definido para aplicar recepção no modo {modo_id}")
 
     return recepcao_anterior
 
@@ -152,9 +156,14 @@ async def atualizar_permissoes_canal(canal, role, overwrite=False):
 
 def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
     modo = modos[str(guild_id)]["modos"][modo_id]
-    cargo_antigo_id = modo.get("roles", [None])[0]
+    roles = modo.get("roles", [])
+    cargo_antigo_id = roles[0] if roles else None
 
-    modo["roles"] = [novo_cargo_id]
+    if novo_cargo_id:
+        modo["roles"] = [str(novo_cargo_id)]
+    else:
+        modo["roles"] = []
+
     return cargo_antigo_id, novo_cargo_id
 
 def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
@@ -190,6 +199,28 @@ def limpar_modos_incompletos(guild_id):
 
     for modo_id, modo in modos_guild.items():
         if not modo.get("em_edicao", False) and not modo.get("finalizado", False):
+            modos_para_remover.append(modo_id)
+
+    for modo_id in modos_para_remover:
+        modos_guild.pop(modo_id, None)
+
+    dados[guild_id_str]["modos"] = modos_guild
+    MODOS_CACHE[guild_id_str] = dados[guild_id_str]
+    salvar_modos(dados)
+
+def limpar_modos_usuario(guild_id, user_id):
+    dados = carregar_modos()
+    guild_id_str = str(guild_id)
+    user_id_str = str(user_id)
+
+    if guild_id_str not in dados:
+        return
+
+    modos_guild = dados[guild_id_str].get("modos", {})
+    modos_para_remover = []
+
+    for modo_id, modo in modos_guild.items():
+        if modo.get("criador") == user_id_str and modo.get("em_edicao", True):
             modos_para_remover.append(modo_id)
 
     for modo_id in modos_para_remover:

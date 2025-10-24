@@ -3,6 +3,7 @@ import json
 import discord
 from discord.ext import commands
 from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
+from idiomas import obter_idioma, definir_idioma, carregar_idiomas
 from utils.modos import (
     criar_modo,
     modo_existe,
@@ -15,7 +16,8 @@ from utils.modos import (
     atualizar_permissoes_canal,
     substituir_cargo,
     validar_canais,
-    limpar_modos_incompletos
+    limpar_modos_incompletos,
+    limpar_modos_usuario
 )
 from embed import (
     get_language_embed,
@@ -46,6 +48,15 @@ from embed import (
     get_channel_conflict_warning_embed,
     get_channel_removed_warning_embed
 )
+
+def resetar_estado_usuario(guild_id, user_id):
+    criando_modo.pop(user_id, None)
+    modo_ids.pop(user_id, None)
+    user_progress.setdefault(guild_id, {}).pop(user_id, None)
+    historico_embeds.pop(user_id, None)
+    em_edicao.pop(user_id, None)
+    modo_atual.pop(user_id, None)
+    limpar_modos_usuario(guild_id, user_id)
 
 # ----------------- BOT & INTENTS -----------------
 intents = discord.Intents.default()
@@ -263,29 +274,7 @@ EMBEDS = {
 }
 
 # ----------------- FUNÇÕES AUXILIARES -----------------
-def carregar_idiomas():
-    try:
-        with open(CAMINHO_IDIOMAS, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-
-def salvar_idiomas(dados):
-    with open(CAMINHO_IDIOMAS, "w", encoding="utf-8") as f:
-        json.dump(dados, f, indent=4)
-
 idiomas = carregar_idiomas()
-
-def obter_idioma(guild_id):
-    guild_id = str(guild_id)
-    if guild_id not in idiomas:
-        idiomas[guild_id] = "en"
-        salvar_idiomas(idiomas)
-    return idiomas[guild_id]
-
-def definir_idioma(guild_id, idioma):
-    idiomas[str(guild_id)] = idioma
-    salvar_idiomas(idiomas)
 
 def push_embed(user_id, estado, *args):
     historico_embeds.setdefault(user_id, []).append((estado, args))
@@ -389,7 +378,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         print(f"[ERROR] ao gerar embed {next_embed_name}: {e}")
         return
 
-    push_embed(user_id, next_embed_name, *extra_args, current)
+    push_embed(user_id, next_embed_name, *extra_args)
 
     membro = canal.guild.get_member(user_id)
     await limpar_mensagens(canal, membro, bot.user)
@@ -492,23 +481,93 @@ async def go_back(canal, user_id, guild_id):
         print(f"[ERROR] Embed {last_embed} não encontrado")
         return
 
+    # --- PATCH: tratamento especial para get_role_select_embed ---
+    if last_embed == "get_role_select_embed":
+        try:
+            # recarrega os cargos do servidor e remove o @everyone
+            roles = [r for r in canal.guild.roles if not r.is_default()]
+            embed = embed_func(idioma, roles)
+            return embed
+        except Exception as e:
+            print(f"[ERROR] falha ao gerar embed get_role_select_embed: {e}")
+            import traceback; traceback.print_exc()
+            return
+        
+    if last_embed == "get_create_embed":
+        try:
+            embed = get_create_embed(canal.guild)  # guild atual passada, idioma é lido dentro da função
+            return embed
+        except Exception as e:
+            print(f"[ERROR] falha ao gerar embed get_create_embed: {e}")
+            import traceback; traceback.print_exc()
+            return
+    # --- FIM DO PATCH ---
+
     embed = None
     try:
         import inspect
         sig = inspect.signature(embed_func)
         num_params = len(sig.parameters)
 
+        # Normaliza possíveis args vindos do histórico:
+        def sanitize_arg(arg, canal):
+            # Se for lista, tenta converter itens numéricos para Role/Channel
+            if isinstance(arg, (list, tuple)):
+                out = []
+                for item in arg:
+                    s = str(item)
+                    if s.isdigit():
+                        r = canal.guild.get_role(int(s))
+                        if r:
+                            out.append(r)
+                            continue
+                        ch = canal.guild.get_channel(int(s))
+                        if ch:
+                            out.append(ch)
+                            continue
+                        out.append(s)
+                    else:
+                        out.append(s)
+                return out
+            if isinstance(arg, str) and arg.isdigit():
+                r = canal.guild.get_role(int(arg))
+                if r:
+                    return r
+                ch = canal.guild.get_channel(int(arg))
+                if ch:
+                    return ch
+                return arg
+            return arg
+
+        sanitized_args = tuple(sanitize_arg(a, canal) for a in args)
+
         if last_embed in ("get_roles_embed", "get_create_embed"):
             roles = [role for role in canal.guild.roles if not role.is_default()]
-            embed = embed_func(roles, idioma) if num_params > 1 else embed_func(idioma)
+            if num_params > 1:
+                try:
+                    embed = embed_func(idioma, roles)
+                except TypeError:
+                    embed = embed_func(roles, idioma)
+            else:
+                embed = embed_func(idioma)
         elif last_embed == "get_channel_select_embed":
             channels = canal.guild.channels
             embed = embed_func(idioma, channels) if num_params > 1 else embed_func(idioma)
         else:
-            embed = embed_func(idioma) if num_params == 1 else embed_func(idioma, *args)
+            try:
+                embed = embed_func(idioma) if num_params == 1 else embed_func(idioma, *sanitized_args)
+            except Exception:
+                try:
+                    embed = embed_func(idioma) if num_params == 1 else embed_func(idioma, *args)
+                except Exception as e:
+                    print(f"[ERROR] ao gerar embed (fallback) {last_embed}: {e}")
+                    raise
+
     except Exception as e:
         print(f"[ERROR] ao gerar embed {last_embed}: {e}")
+        import traceback; traceback.print_exc()
         return
+
 
     membro = canal.guild.get_member(user_id)
     await limpar_mensagens(canal, membro, bot.user)
@@ -641,7 +700,8 @@ async def on_raw_reaction_add(payload):
 
             # Validar canais e eliminar conflitos falsos
             try:
-                canais_validos, canais_invalidos = validar_canais(guild, canais_existentes)
+                canais_existentes_no_modo_atual = modo.get("channels", []) or []
+                canais_validos, canais_invalidos = validar_canais(guild, canais_existentes, canais_existentes_no_modo_atual)
             except Exception as e:
                 print(f"[ERROR] validar_canais falhou: {e}")
                 embed = get_channel_removed_warning_embed(idioma, ["(erro ao validar canais)"])
@@ -837,6 +897,8 @@ async def on_message(message):
 
     # -------------------- ETAPA NOME (criação ou edição) --------------------
     if message.content.startswith("#"):
+        resetar_estado_usuario(guild_id, user_id)
+
         nome_modo = message.content[1:].strip()
 
         # Validação de tamanho
@@ -1042,7 +1104,7 @@ async def setup(ctx):
     idioma = obter_idioma(ctx.guild.id)
     embed = get_setup_embed(idioma)
     await enviar_embed(ctx.channel, ctx.author.id, embed)
-
+    
 @bot.command(name="criar", aliases=["Criar", "CRIAR", "create", "Create", "CREATE"])
 async def criar(ctx):
     await ctx.message.delete()
@@ -1051,6 +1113,7 @@ async def criar(ctx):
     user_id = ctx.author.id
     guild_id = ctx.guild.id
 
+    # Reseta flags de edição
     if em_edicao.get(user_id):
         em_edicao[user_id] = False
         modo_atual[user_id] = None
@@ -1060,6 +1123,7 @@ async def criar(ctx):
     if guild_id in user_progress:
         user_progress[guild_id].pop(user_id, None)
 
+    # Garante que todos os modos antigos em edição sejam resetados
     dados = carregar_modos()
     if str(guild_id) in dados:
         for mid, m in dados[str(guild_id)].get("modos", {}).items():
@@ -1067,10 +1131,10 @@ async def criar(ctx):
                 m["em_edicao"] = False
     salvar_modos(dados)
 
-    idioma = obter_idioma(guild_id)
-    embed = get_create_embed(ctx.guild.roles, idioma)
+    embed = get_create_embed(ctx.guild)  # só passa o guild
     msg = await ctx.channel.send(embed=embed)
 
+    # Reações de navegação
     if flow["get_create_embed"].get("back"):
         await msg.add_reaction("🔙")
     if flow["get_create_embed"].get("next"):

@@ -1,5 +1,6 @@
 import discord
 from utils.modos import carregar_modos
+from idiomas import obter_idioma
 
 def get_language_embed(language):
     embed = discord.Embed(
@@ -130,17 +131,28 @@ def get_functions_embed(language):
 
 def get_roles_embed(roles, language):
     filtered_roles = []
+
     for role in roles:
+        # Se for um objeto Role e não for o @everyone
         if isinstance(role, discord.Role) and role.name != "@everyone":
             filtered_roles.append(role)
+        # Se for string ou ID, ainda adiciona como texto
+        elif isinstance(role, (str, int)):
+            filtered_roles.append(str(role))
 
     if language == "pt":
         if filtered_roles:
-            cargos_texto = "\n".join([f"- **{role.name}**: ({role.id})" for role in filtered_roles])
+            cargos_texto = "\n".join([
+                f"- **{getattr(role, 'name', str(role))}**: ({getattr(role, 'id', 'N/A')})"
+                for role in filtered_roles
+            ])
         else:
-            cargos_texto = "❌ Nenhum cargo encontrado. Utilize o comando `!Manual` para adicionar manualmente."
+            cargos_texto = (
+                "❌ Nenhum cargo encontrado. "
+                "Utilize o comando `!Manual` para adicionar manualmente."
+            )
 
-        modos_texto = "_🚧 O sistema de modos ainda está em desenvolvimento. Em breve será possível lista-los._"
+        modos_texto = "_🚧 O sistema de modos ainda está em desenvolvimento. Em breve será possível listá-los._"
 
         embed = discord.Embed(
             title="📌 Cargos e modos do servidor",
@@ -152,9 +164,14 @@ def get_roles_embed(roles, language):
 
     else:
         if filtered_roles:
-            roles_text = "\n".join([f"- **{role.name}**: ({role.id})" for role in filtered_roles])
+            roles_text = "\n".join([
+                f"- **{getattr(role, 'name', str(role))}**: ({getattr(role, 'id', 'N/A')})"
+                for role in filtered_roles
+            ])
         else:
-            roles_text = "❌ No roles found. Use the `!Manual` command to add them manually."
+            roles_text = (
+                "❌ No roles found. Use the `!Manual` command to add them manually."
+            )
 
         modes_text = "🚧 _The modes system is still under development. Soon it will be possible to list them._"
 
@@ -243,49 +260,53 @@ def get_mode_selected_embed(mode_name, language,):
         )
     return embed
 
-def get_create_embed(roles, language):
-    filtered_roles = [role for role in roles if role.name != "@everyone"]
+def get_create_embed(guild):
+    # Pega o idioma atual do servidor
+    language = obter_idioma(guild.id)
+
+    # Pega os roles válidos (excluindo @everyone)
+    roles = [r for r in guild.roles if not r.is_default() and r.name != "@everyone"]
 
     if language == "pt":
         titulo = "**ℹ️ Informações Iniciais**"
         descricao = (
-            "Olá! Seja bem-vindo(a) ao modo de criação. Se este for seu **primeiro modo**, recomendamos seguir os passos abaixo com atenção:\n\n"
-            "**1.** Crie ao menos um **modo de 'recepção'**. Ele será atribuído automaticamente a quem entrar no servidor, evitando o trabalho manual.\n"
-            "**2.** Certifique-se de que o bot tenha as **permissões necessárias** para funcionar corretamente. Não se preocupe, não coletamos dados dos usuários. Em caso de dúvidas, use o comando `!sobre` para acessar o repositório do projeto.\n"
-            "**3.** Verifique se os cargos abaixo foram reconhecidos corretamente. Caso contrário, utilize o comando `!manual` e siga o passo a passo.\n"
+            "Olá! Seja bem-vindo(a) ao modo de criação. Se este for seu **primeiro modo**, "
+            "recomendamos seguir os passos abaixo com atenção:\n\n"
+            "**1.** Crie ao menos um **modo de 'recepção'**. Ele será atribuído automaticamente "
+            "a quem entrar no servidor, evitando o trabalho manual.\n"
+            "**2.** Certifique-se de que o bot tenha as **permissões necessárias** para funcionar corretamente. "
+            "Não se preocupe, não coletamos dados dos usuários. Em caso de dúvidas, use o comando `!sobre`.\n"
+            "**3.** Verifique se os cargos abaixo foram reconhecidos corretamente. Caso contrário, utilize o comando `!manual`.\n"
             "**4.** O funcionamento do bot é simples: ele **altera os cargos dos membros** para exibir os canais privados correspondentes ao modo ativo.\n"
-            "**5.** Após configurar tudo, teste criando um modo temporário e veja se o sistema aplica corretamente os cargos ao reagir.\n\n"
+            "**5.** Após configurar tudo, teste criando um modo temporário e veja se o sistema aplica os cargos corretamente ao reagir.\n\n"
             "⚙️ *Lembre-se: os modos podem ser editados ou removidos a qualquer momento usando os comandos disponíveis.*"
         )
         rodape = "🗃️ ModEx - Seu servidor, seus modos!"
-
-        if filtered_roles:
-            cargos_texto = "\n".join([f"- **{role.name}**" for role in filtered_roles])
-        else:
-            cargos_texto = "❌ Nenhum cargo encontrado. Utilize o comando `!manual` para adicionar manualmente."
-
+        cargos_texto = "\n".join([f"- **{role.name}**" for role in roles]) if roles else \
+            "❌ Nenhum cargo encontrado. Utilize o comando `!manual` para adicionar manualmente."
     else:
         titulo = "**ℹ️ Initial Info**"
         descricao = (
-            "Hi there! Welcome to Creation Mode. If this is your **first time setting things up**, we strongly recommend following these steps carefully:\n\n"
-            "**1.** Create at least one **'welcome mode'**. This mode will be automatically assigned to new members, saving you manual work.\n"
-            "**2.** Make sure the bot has all the **required permissions** to function properly. Don’t worry, we don’t collect any user data. If in doubt, use the `!about` command to view the project repository.\n"
-            "**3.** Check if the roles below were detected correctly. If not, run the `!manual` command and follow the step-by-step guide.\n"
+            "Hi there! Welcome to Creation Mode. If this is your **first time setting things up**, "
+            "we strongly recommend following these steps carefully:\n\n"
+            "**1.** Create at least one **'welcome mode'**. This mode will be automatically assigned "
+            "to new members, saving you manual work.\n"
+            "**2.** Make sure the bot has all the **required permissions** to function properly. "
+            "Don’t worry, we don’t collect any user data. If in doubt, use the `!about` command.\n"
+            "**3.** Check if the roles below were detected correctly. If not, run the `!manual` command.\n"
             "**4.** The bot works in a simple way: it **switches roles for members** to show private channels linked to that mode.\n"
             "**5.** Once setup is done, test it by creating a temporary mode and see if it applies the roles correctly when reacting.\n\n"
             "⚙️ *Reminder: you can edit or remove modes at any time using the available commands.*"
         )
         rodape = "🗃️ ModEx - Your server, your modes!"
-
-        if filtered_roles:
-            cargos_texto = "\n".join([f"- **{role.name}**" for role in filtered_roles])
-        else:
-            cargos_texto = "❌ No roles found. Use the `!manual` command to add them manually."
+        cargos_texto = "\n".join([f"- **{role.name}**" for role in roles]) if roles else \
+            "❌ No roles found. Use the `!manual` command to add them manually."
 
     embed = discord.Embed(title=titulo, description=descricao, color=discord.Color.yellow())
     embed.add_field(name="**Cargos encontrados:**", value=cargos_texto, inline=False)
     embed.set_footer(text=rodape)
     return embed
+
 
 def get_initial_create_embed(language):
     if language == "pt":
