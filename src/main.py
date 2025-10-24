@@ -379,6 +379,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         print(f"[ERROR] ao gerar embed {next_embed_name}: {e}")
         return
 
+    user_progress[guild_id][user_id] = next_embed_name
     push_embed(user_id, next_embed_name, *extra_args)
 
     membro = canal.guild.get_member(user_id)
@@ -391,6 +392,11 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         await msg.add_reaction("✅")
 
     if next_embed_name == "get_reception_mode_question_embed":
+        canais_selecionados = criando_modo.get(user_id, {}).get("canais", [])
+        if not canais_selecionados:
+            await canal.send("⚠️ Você precisa selecionar ao menos um canal antes de avançar!")
+            return
+
         try:
             await msg.add_reaction("✅")
             await msg.add_reaction("❌")
@@ -400,13 +406,17 @@ async def go_next(canal, user_id, guild_id, resultado=None):
     if current == "get_name_saved_embed":
         next_embed_name = "get_role_select_embed"
         criando_modo[user_id] = "selecionando_cargo"
+        user_progress.setdefault(guild_id, {})[user_id] = next_embed_name
     elif current == "get_role_saved_embed":
         next_embed_name = "get_channel_select_embed"
         criando_modo[user_id] = "selecionando_canal"
+        user_progress.setdefault(guild_id, {})[user_id] = next_embed_name
     elif next_embed_name == "get_name_saved_embed":
         criando_modo[user_id] = "nome_salvo"
+        user_progress.setdefault(guild_id, {})[user_id] = next_embed_name
     elif next_embed_name == "get_finish_mode_embed":
         criando_modo[user_id] = "finalizado"
+        user_progress.setdefault(guild_id, {})[user_id] = next_embed_name
 
         guild_id_str = str(guild_id)
         if guild_id_str in MODOS_CACHE:
@@ -485,10 +495,18 @@ async def go_back(canal, user_id, guild_id):
     # --- PATCH: tratamento especial para get_role_select_embed ---
     if last_embed == "get_role_select_embed":
         try:
-            # recarrega os cargos do servidor e remove o @everyone
             roles = [r for r in canal.guild.roles if not r.is_default()]
             embed = embed_func(idioma, roles)
-            return embed
+            membro = canal.guild.get_member(user_id)
+            await limpar_mensagens(canal, membro, bot.user)
+            msg = await canal.send(embed=embed)
+            if flow[last_embed].get("back"):
+                await msg.add_reaction("🔙")
+            if flow[last_embed].get("next"):
+                await msg.add_reaction("✅")
+            user_progress.setdefault(guild_id, {})[user_id] = last_embed
+            return
+
         except Exception as e:
             print(f"[ERROR] falha ao gerar embed get_role_select_embed: {e}")
             import traceback; traceback.print_exc()
@@ -502,6 +520,29 @@ async def go_back(canal, user_id, guild_id):
             print(f"[ERROR] falha ao gerar embed get_create_embed: {e}")
             import traceback; traceback.print_exc()
             return
+        
+    # --- PATCH: tratamento especial para get_channel_select_embed ---
+    if last_embed == "get_channel_select_embed":
+        criando_modo[user_id] = "selecionando_canal"  # garante estado correto
+        user_progress[guild_id][user_id] = "get_channel_select_embed"
+
+        try:
+            embed = embed_func(idioma)  # só passa idioma
+        except Exception as e:
+            print(f"[ERROR] falha ao gerar embed get_channel_select_embed: {e}")
+            import traceback; traceback.print_exc()
+            return
+
+        membro = canal.guild.get_member(user_id)
+        await limpar_mensagens(canal, membro, bot.user)
+        msg = await canal.send(embed=embed)
+        if flow[last_embed].get("back"):
+            await msg.add_reaction("🔙")
+        if flow[last_embed].get("next"):
+            await msg.add_reaction("✅")
+
+        return
+
     # --- FIM DO PATCH ---
 
     embed = None
@@ -551,9 +592,33 @@ async def go_back(canal, user_id, guild_id):
                     embed = embed_func(roles, idioma)
             else:
                 embed = embed_func(idioma)
+
         elif last_embed == "get_channel_select_embed":
+
+            dados = carregar_modos()
+            guild_id_str = str(canal.guild.id)
+
+            for modo_id, modo in dados.get(guild_id_str, {}).get("modos", {}).items():
+                if modo.get("criador") == str(user_id) and modo.get("em_edicao", False):
+                    # limpa os canais antigos
+                    salvar_channels_modo(canal.guild.id, modo_id, [])
+
+            # Sincroniza o progresso do usuário
+            user_progress.setdefault(canal.guild.id, {})[user_id] = "get_channel_select_embed"
+
+            # Limpa histórico antigo da etapa para que o próximo botão funcione
+            if user_id in historico_embeds:
+                historico_embeds[user_id] = [
+                    (e, a) for e, a in historico_embeds[user_id] if e != "get_channel_select_embed"
+                ]
+
+            # Agora gera o embed
             channels = canal.guild.channels
-            embed = embed_func(idioma, channels) if num_params > 1 else embed_func(idioma)
+            try:
+                embed = embed_func(idioma, channels)
+            except TypeError:
+                embed = embed_func(channels, idioma)
+
         else:
             try:
                 embed = embed_func(idioma) if num_params == 1 else embed_func(idioma, *sanitized_args)
@@ -568,7 +633,6 @@ async def go_back(canal, user_id, guild_id):
         print(f"[ERROR] ao gerar embed {last_embed}: {e}")
         import traceback; traceback.print_exc()
         return
-
 
     membro = canal.guild.get_member(user_id)
     await limpar_mensagens(canal, membro, bot.user)
@@ -1112,6 +1176,9 @@ async def setup(ctx):
 async def criar(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     user_id = ctx.author.id
     guild_id = ctx.guild.id
@@ -1151,6 +1218,9 @@ async def criar(ctx):
 async def editar(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     user_id = ctx.author.id
     guild_id = ctx.guild.id
@@ -1173,6 +1243,9 @@ async def editar(ctx):
 async def verificar(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_roles_embed(ctx.guild.roles, idioma)
@@ -1188,6 +1261,9 @@ async def verificar(ctx):
 async def funcoes(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_functions_embed(idioma)
@@ -1207,6 +1283,9 @@ async def funcoes(ctx):
 async def sobre(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_about_embed(idioma)
@@ -1226,6 +1305,9 @@ async def sobre(ctx):
 async def idioma(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_language_embed(idioma)
