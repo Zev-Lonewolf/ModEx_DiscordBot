@@ -3,3 +3,4 @@ src/.env
 data/idiomas.json
 data/modos.json
 src/utils/__pycache__/modos.cpython-313.pyc
+idiomas.json
