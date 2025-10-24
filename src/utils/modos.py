@@ -198,14 +198,17 @@ def limpar_modos_incompletos(guild_id):
     modos_para_remover = []
 
     for modo_id, modo in modos_guild.items():
-        if not modo.get("em_edicao", False) and not modo.get("finalizado", False):
+        if modo.get("em_edicao") is False and modo.get("finalizado") is False:
             modos_para_remover.append(modo_id)
 
     for modo_id in modos_para_remover:
         modos_guild.pop(modo_id, None)
 
     dados[guild_id_str]["modos"] = modos_guild
-    MODOS_CACHE[guild_id_str] = dados[guild_id_str]
+    # Remove do cache também para evitar "ressurreição"
+    if guild_id_str in MODOS_CACHE:
+        MODOS_CACHE[guild_id_str]["modos"] = modos_guild
+
     salvar_modos(dados)
 
 def limpar_modos_usuario(guild_id, user_id):
