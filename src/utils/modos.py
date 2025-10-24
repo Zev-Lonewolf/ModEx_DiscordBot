@@ -188,6 +188,27 @@ def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
 
     return canais_validos, canais_invalidos
 
+def finalizar_modos_em_edicao(guild_id, user_id=None):
+    dados = carregar_modos()
+    guild_id_str = str(guild_id)
+    if guild_id_str not in dados:
+        return
+
+    modos_guild = dados[guild_id_str].get("modos", {})
+
+    for modo_id, modo in modos_guild.items():
+        # Se user_id for passado, só finaliza modos desse usuário
+        if user_id:
+            if modo.get("criador") == str(user_id) and modo.get("em_edicao", False):
+                modo["em_edicao"] = False
+        else:
+            # Se não passar user_id, finaliza todos que estão em edição
+            if modo.get("em_edicao", False):
+                modo["em_edicao"] = False
+
+    dados[guild_id_str]["modos"] = modos_guild
+    salvar_modos(dados)
+
 def limpar_modos_incompletos(guild_id):
     guild_id_str = str(guild_id)
     dados = carregar_modos()

@@ -17,7 +17,8 @@ from utils.modos import (
     substituir_cargo,
     validar_canais,
     limpar_modos_incompletos,
-    limpar_modos_usuario
+    limpar_modos_usuario,
+    finalizar_modos_em_edicao
 )
 from embed import (
     get_language_embed,
@@ -1100,11 +1101,13 @@ async def on_message(message):
 async def setup(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
     idioma = obter_idioma(ctx.guild.id)
     embed = get_setup_embed(idioma)
     await enviar_embed(ctx.channel, ctx.author.id, embed)
-    
+        
 @bot.command(name="criar", aliases=["Criar", "CRIAR", "create", "Create", "CREATE"])
 async def criar(ctx):
     await ctx.message.delete()
