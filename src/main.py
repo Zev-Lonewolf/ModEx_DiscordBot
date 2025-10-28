@@ -962,8 +962,12 @@ async def on_message(message):
 
     # -------------------- ETAPA NOME (criação ou edição) --------------------
     if message.content.startswith("#"):
-        resetar_estado_usuario(guild_id, user_id)
+        # Ignora mensagens de nome dentro do get_create_embed
+        if current == "get_create_embed":
+            return
 
+        resetar_estado_usuario(guild_id, user_id)
+        
         nome_modo = message.content[1:].strip()
 
         # Validação de tamanho
