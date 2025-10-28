@@ -392,16 +392,16 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         await msg.add_reaction("✅")
 
     if next_embed_name == "get_reception_mode_question_embed":
-        canais_selecionados = criando_modo.get(user_id, {}).get("canais", [])
-        if not canais_selecionados:
-            await canal.send("⚠️ Você precisa selecionar ao menos um canal antes de avançar!")
-            return
-
         try:
             await msg.add_reaction("✅")
             await msg.add_reaction("❌")
         except Exception as e:
             print(f"[WARN] Não foi possível adicionar reações de recepção: {e}")
+    else:
+        if flow[next_embed_name].get("back"):
+            await msg.add_reaction("🔙")
+        if flow[next_embed_name].get("next"):
+            await msg.add_reaction("✅")
 
     if current == "get_name_saved_embed":
         next_embed_name = "get_role_select_embed"
