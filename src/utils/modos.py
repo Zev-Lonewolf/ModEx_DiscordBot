@@ -1,5 +1,6 @@
 import json
 import os
+import discord
 from config import CAMINHO_MODOS, MODOS_CACHE
 import time
 
@@ -140,19 +141,27 @@ def reset_edicao(guild_id: int, user_id: int = None):
 
 async def atualizar_permissoes_canal(canal, role, overwrite=False):
     try:
-        if overwrite:
-            await canal.edit(overwrites={})
+        overwrites = canal.overwrites.copy()
 
-        perms = canal.overwrites_for(role)
-        perms.view_channel = True
-        perms.send_messages = True
-        perms.connect = True
-        perms.speak = True
+        overwrites[canal.guild.default_role] = discord.PermissionOverwrite(
+            view_channel=False,
+            send_messages=False,
+            connect=False,
+            speak=False
+        )
 
-        await canal.set_permissions(role, overwrite=perms)
+        overwrites[role] = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            connect=True,
+            speak=True
+        )
+
+        await canal.edit(overwrites=overwrites)
 
     except Exception as e:
         print(f"[ERROR] Falha ao atualizar permissões em {getattr(canal, 'name', str(canal))}: {e}")
+
 
 def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
     modo = modos[str(guild_id)]["modos"][modo_id]

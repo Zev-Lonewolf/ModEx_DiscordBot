@@ -1,5 +1,4 @@
 import re
-import json
 import discord
 from discord.ext import commands
 from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
