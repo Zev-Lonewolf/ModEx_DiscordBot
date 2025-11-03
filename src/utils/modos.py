@@ -75,25 +75,48 @@ async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
     modo_id = str(modo_id)
     recepcao_anterior = None
 
-    if server_id in dados:
+    if server_id not in dados:
+        return None
+
+    # Só desativa outros modos se um novo role (modo confirmado) foi definido
+    if role:
         for mid, modo in dados[server_id].get("modos", {}).items():
-            if modo.get("recepcao") and mid != modo_id:
-                recepcao_anterior = mid
+            if modo.get("recepcao", False):
                 modo["recepcao"] = False
+                recepcao_anterior = mid
+
         if modo_id in dados[server_id]["modos"]:
             dados[server_id]["modos"][modo_id]["recepcao"] = True
-        salvar_modos(dados)
-
-    if role:
-        for ch in canais:
-            if not ch:
-                continue
-            try:
-                await atualizar_permissoes_canal(ch, role, overwrite=overwrite)
-            except Exception as e:
-                print(f"[WARN] falha ao atualizar permissões no canal {getattr(ch, 'id', '?')}: {e}")
+            salvar_modos(dados)
+        else:
+            print(f"[WARN] modo {modo_id} não encontrado em {server_id}")
+            return None
     else:
-        print(f"[INFO] Nenhum cargo definido para aplicar recepção no modo {modo_id}")
+        # Não altera recepção se nenhum cargo foi confirmado
+        print(f"[INFO] Nenhum cargo definido — recepção permanece inalterada")
+        return None
+
+    # Atualizar permissões
+    for ch in canais:
+        if not ch:
+            continue
+        try:
+            overwrites = ch.overwrites.copy()
+            overwrites[guild.default_role] = discord.PermissionOverwrite(
+                view_channel=False,
+                send_messages=False,
+                connect=False,
+                speak=False
+            )
+            overwrites[role] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                connect=True,
+                speak=True
+            )
+            await ch.edit(overwrites=overwrites)
+        except Exception as e:
+            print(f"[WARN] falha ao atualizar permissões no canal {getattr(ch, 'name', '?')}: {e}")
 
     return recepcao_anterior
 

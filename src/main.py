@@ -799,23 +799,28 @@ async def on_raw_reaction_add(payload):
                 if ch:
                     canais_validos.append(ch)
 
-            # Atualizar permissões nos canais válidos
-            if novo_role and canais_validos:
-                for ch in canais_validos:
-                    try:
-                        await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
-                    except Exception as e:
-                        print(f"[WARN] falha ao atualizar permissões no canal {getattr(ch, 'name', str(ch))}: {e}")
+            # Atualizar permissões e definir recepção só após confirmação
+            recepcao_anterior = None
 
-                recepcao_anterior = await atribuir_recepcao(
-                    guild,
-                    modo_id,
-                    canais_validos,
-                    novo_role,
-                    overwrite=em_edicao.get(user_id, False)
-                )
+            if novo_role and canais_validos:
+                try:
+                    # Atualiza as permissões de forma segura
+                    for ch in canais_validos:
+                        await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
+
+                    # Marca este modo como recepção e desmarca os demais
+                    recepcao_anterior = await atribuir_recepcao(
+                        guild,
+                        modo_id,
+                        canais_validos,
+                        novo_role,
+                        overwrite=True
+                    )
+
+                except Exception as e:
+                    print(f"[ERROR] Falha ao aplicar recepção para {novo_role.name if novo_role else 'N/A'}: {e}")
             else:
-                recepcao_anterior = await atribuir_recepcao(guild, modo_id, [], None, overwrite=False)
+                print(f"[INFO] Nenhum cargo definido — recepção permanece inalterada")
 
             # Próximo passo com embed adequado
             if recepcao_anterior:
@@ -863,8 +868,15 @@ async def on_raw_reaction_add(payload):
 
         role = guild.get_role(cargo_id) if cargo_id else None
 
+        # Corrigido: definir variável que faltava
+        canais_existentes_no_modo_atual = modo.get("channels", []) or []
+
         try:
-            canais_validos, canais_invalidos = validar_canais(guild, canais_existentes)
+            canais_validos, canais_invalidos = validar_canais(
+                guild,
+                canais_existentes,
+                canais_existentes_no_modo_atual
+            )
         except Exception as e:
             print(f"[ERROR] validar_canais falhou: {e}")
             embed = get_channel_removed_warning_embed(idioma, ["(erro ao validar canais)"])
@@ -896,15 +908,7 @@ async def on_raw_reaction_add(payload):
             if ch:  # só adiciona canais que existem
                 canais_validos.append(ch)
 
-        # Atualizar permissões para o cargo selecionado (se houver)
-        if role and canais_validos:
-            for ch in canais_validos:
-                try:
-                    await atualizar_permissoes_canal(ch, role)
-                except Exception as e:
-                    print(f"[WARN] falha ao atualizar permissões no canal {getattr(ch, 'name', str(ch))}: {e}")
-
-        # Avança pro próximo embed
+        # Não atualiza permissões ao pular — apenas segue o fluxo
         role_name = role.name if role else "N/A"
         await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
 
