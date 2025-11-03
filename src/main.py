@@ -746,9 +746,6 @@ async def on_raw_reaction_add(payload):
             novo_cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
             cargo_antigo_id, novo_cargo_id = substituir_cargo(modos, guild_id, modo_id, novo_cargo_id)
 
-            salvar_modos(modos)
-            MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = modos[str(guild_id)]["modos"][modo_id]
-
             # Normalizar canais
             raw_canais = modo.get("channels", []) or []
             canais_existentes = []
@@ -762,7 +759,7 @@ async def on_raw_reaction_add(payload):
                         continue
                 canais_existentes.append(str(cid))
 
-            # Validar canais e eliminar conflitos falsos
+            # Validar canais
             try:
                 canais_existentes_no_modo_atual = modo.get("channels", []) or []
                 canais_validos, canais_invalidos = validar_canais(guild, canais_existentes, canais_existentes_no_modo_atual)
@@ -792,23 +789,29 @@ async def on_raw_reaction_add(payload):
             novo_role = guild.get_role(novo_cargo_id) if novo_cargo_id else None
 
             # Pega canais válidos como objetos
-            raw_canais = modo.get("channels", [])
             canais_validos = []
             for cid in raw_canais:
                 ch = guild.get_channel(int(cid))
                 if ch:
                     canais_validos.append(ch)
 
-            # Atualizar permissões e definir recepção só após confirmação
-            recepcao_anterior = None
-
+            # Atualiza recepção apenas se tiver cargo e canais
             if novo_role and canais_validos:
                 try:
-                    # Atualiza as permissões de forma segura
+                    # Atualiza permissões
                     for ch in canais_validos:
                         await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
 
                     # Marca este modo como recepção e desmarca os demais
+                    for mid, mdata in modos[str(guild_id)]["modos"].items():
+                        mdata["recepcao"] = False
+                    modos[str(guild_id)]["modos"][modo_id]["recepcao"] = True
+
+                    # Salva modos atualizado
+                    salvar_modos(modos)
+                    MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = modos[str(guild_id)]["modos"][modo_id]
+
+                    # Aplica recepção de fato
                     recepcao_anterior = await atribuir_recepcao(
                         guild,
                         modo_id,
@@ -820,9 +823,10 @@ async def on_raw_reaction_add(payload):
                 except Exception as e:
                     print(f"[ERROR] Falha ao aplicar recepção para {novo_role.name if novo_role else 'N/A'}: {e}")
             else:
+                recepcao_anterior = None
                 print(f"[INFO] Nenhum cargo definido — recepção permanece inalterada")
 
-            # Próximo passo com embed adequado
+            # Próximo passo com embed
             if recepcao_anterior:
                 old_role_id = modos.get(str(guild_id), {}).get("modos", {}).get(recepcao_anterior, {}).get("roles", [None])[0]
                 old_role = guild.get_role(int(old_role_id)) if old_role_id else None
@@ -1120,7 +1124,7 @@ async def on_message(message):
             criando_modo[user_id] = "canal_invalido"
             return
 
-        # Validação de canais removidos (apagados)
+        # Validação de canais removidos
         canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
         if canais_removidos:
             embed = get_channel_removed_warning_embed(idioma, canais_removidos)
@@ -1131,7 +1135,7 @@ async def on_message(message):
             criando_modo[user_id] = "erro_canal"
             return
 
-        # Validação de canais em conflito (já usados em outro modo / sobrescritos)
+        # Validação de conflito
         canais_conflito = []
         if not em_edicao.get(user_id, False):
             canais_usados = []
@@ -1150,36 +1154,11 @@ async def on_message(message):
             criando_modo[user_id] = "erro_canal"
             return
 
+        # Salva apenas os canais e mantém o modo existente
         salvar_channels_modo(guild_id, modo_ids[user_id], channels)
-        salvar_modos(carregar_modos())
-
-        guild = message.guild
-        canais_validos = list(message.channel_mentions)
-
-        # -------------------- ATRIBUIR RECEPÇÃO --------------------
-        guild = message.guild
-        modo_id = modo_ids[user_id]
-        modo = carregar_modos()[str(guild.id)]["modos"][modo_id]
-
-        # Pega os canais válidos do modo
-        ids_canais = modo.get("channels", [])
-        canais_validos = [guild.get_channel(int(ch_id)) for ch_id in ids_canais if guild.get_channel(int(ch_id))]
-
-        # Pega o cargo de recepção (se existir)
-        role_obj = guild.get_role(int(modo["roles"][0])) if modo.get("roles") else None
-
-        # Aplica recepção se possível
-        if canais_validos and role_obj:
-            try:
-                await atribuir_recepcao(
-                    guild=guild,
-                    modo_id=modo_id,
-                    canais=canais_validos,
-                    role=role_obj,
-                    overwrite=True
-                )
-            except Exception as e:
-                print(f"[ERROR] atribuir_recepcao falhou: {e}")
+        modos = carregar_modos()
+        MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_ids[user_id]] = modos[str(guild_id)]["modos"][modo_ids[user_id]]
+        salvar_modos(modos)
 
         embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
         await limpar_mensagens(message.channel, bot.user, message.author)
@@ -1196,7 +1175,7 @@ async def on_message(message):
         return
 
     # ----------------- CHAMADA DOS COMANDOS -----------------
-    await bot.process_commands(message)
+    await bot.process_commands(message) #Não remova, se não os comandos não serão chamados.
 
 # ----------------- COMANDOS -----------------
 @bot.command(name="setup", aliases=["Setup", "SETUP"])
