@@ -185,7 +185,6 @@ async def atualizar_permissoes_canal(canal, role, overwrite=False):
     except Exception as e:
         print(f"[ERROR] Falha ao atualizar permissões em {getattr(canal, 'name', str(canal))}: {e}")
 
-
 def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
     modo = modos[str(guild_id)]["modos"][modo_id]
     roles = modo.get("roles", [])

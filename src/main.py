@@ -858,7 +858,9 @@ async def on_raw_reaction_add(payload):
             return
 
         cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
-        raw_canais = modo.get("channels", []) or []
+        role = guild.get_role(cargo_id) if cargo_id else None
+
+        raw_canais = modo.get("channels", [])  # IDs do modo
         canais_existentes = []
         for c in raw_canais:
             try:
@@ -869,8 +871,6 @@ async def on_raw_reaction_add(payload):
                 except Exception:
                     continue
             canais_existentes.append(str(cid))
-
-        role = guild.get_role(cargo_id) if cargo_id else None
 
         # Corrigido: definir variável que faltava
         canais_existentes_no_modo_atual = modo.get("channels", []) or []
@@ -903,16 +903,23 @@ async def on_raw_reaction_add(payload):
             embed = get_channel_conflict_warning_embed(idioma, canais_conflitantes)
             await canal.send(embed=embed)
             return
-        
+
         # Transformar IDs em objetos Channel
-        raw_canais = modo.get("channels", [])  # IDs do modo
         canais_validos = []
         for cid in raw_canais:
             ch = guild.get_channel(int(cid))
             if ch:  # só adiciona canais que existem
                 canais_validos.append(ch)
 
-        # Não atualiza permissões ao pular — apenas segue o fluxo
+        # Atualiza permissões do cargo
+        if role and canais_validos:
+            try:
+                for ch in canais_validos:
+                    await atualizar_permissoes_canal(ch, role, overwrite=True)
+            except Exception as e:
+                print(f"[ERROR] Falha ao privar canais no ❌: {e}")
+
+        # Continua o fluxo normal
         role_name = role.name if role else "N/A"
         await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
 
