@@ -17,7 +17,7 @@ from utils.modos import (
     validar_canais,
     limpar_modos_incompletos,
     limpar_modos_usuario,
-    finalizar_modos_em_edicao,
+    finalizar_modos_em_edicao
 )
 from embed import (
     get_language_embed,
@@ -308,10 +308,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
 
     idioma = obter_idioma(guild_id)
     extra_args = () 
-    
-    # Garante que a etapa atual seja registrada no histórico antes de mudar
-    if current:
-        push_embed(user_id, current)
 
     # ---------- SE RESULTADO FOR TUPLA (EX: assigned/skipped) ----------
     if isinstance(resultado, tuple):
@@ -422,17 +418,13 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         user_progress.setdefault(guild_id, {})[user_id] = next_embed_name
 
         guild_id_str = str(guild_id)
-        modo_id = modo_ids.get(user_id)
-
-        if modo_id:
-            MODOS_CACHE.setdefault(guild_id_str, {}).setdefault("modos", {}).setdefault(modo_id, {})
-            MODOS_CACHE[guild_id_str]["modos"][modo_id]["finalizado"] = True
-            MODOS_CACHE[guild_id_str]["modos"][modo_id]["em_edicao"] = False
-            salvar_modos(MODOS_CACHE)
-
-        await limpar_modos_incompletos(guild_id, user_id)
-
-        embed = get_finish_mode_embed(obter_idioma(guild_id))
+        if guild_id_str in MODOS_CACHE:
+            modos_guild = MODOS_CACHE[guild_id_str].get("modos", {})
+            modo_id = modo_ids.get(user_id)
+            if modo_id and modo_id in modos_guild:
+                modos_guild[modo_id]["finalizado"] = True
+                modos_guild[modo_id]["em_edicao"] = False
+                salvar_modos(MODOS_CACHE)
 
     elif next_embed_name == "get_role_select_embed":
         criando_modo[user_id] = "selecionando_cargo"
@@ -444,26 +436,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
 async def go_back(canal, user_id, guild_id):
     current = user_progress.get(guild_id, {}).get(user_id)
     idioma = obter_idioma(guild_id)
-
-    # Corrige casos em que o histórico foi perdido (modo criação/edição)
-    if not historico_embeds.get(user_id):
-        # tenta voltar um nível com base no fluxo
-        current = user_progress.get(guild_id, {}).get(user_id)
-        if current and flow.get(current, {}).get("back"):
-            back_embed = flow[current]["back"]
-            if back_embed:
-                embed_func = EMBEDS.get(back_embed)
-                if embed_func:
-                    embed = embed_func(obter_idioma(guild_id))
-                    membro = canal.guild.get_member(user_id)
-                    await limpar_mensagens(canal, membro, bot.user)
-                    msg = await canal.send(embed=embed)
-                    if flow[back_embed].get("back"):
-                        await msg.add_reaction("🔙")
-                    if flow[back_embed].get("next"):
-                        await msg.add_reaction("✅")
-                    user_progress[guild_id][user_id] = back_embed
-                    return
 
     if current == "get_finish_mode_embed":
         back_embed = flow[current].get("back")
@@ -512,7 +484,7 @@ async def go_back(canal, user_id, guild_id):
         modo_ids.pop(user_id, None)
         criando_modo[user_id] = None
 
-        await limpar_modos_incompletos(guild_id, user_id)
+        limpar_modos_incompletos(guild_id)
 
     embed_func = EMBEDS.get(last_embed)
     if not embed_func:
@@ -1021,6 +993,8 @@ async def on_message(message):
         # Ignora mensagens de nome dentro do get_create_embed
         if current == "get_create_embed":
             return
+
+        resetar_estado_usuario(guild_id, user_id)
         
         nome_modo = message.content[1:].strip()
 
@@ -1054,9 +1028,7 @@ async def on_message(message):
                 embed = get_name_conflict_embed(idioma)
                 criando_modo[user_id] = "nome_conflito"
             else:
-                modo_id_existente = modo_ids.get(user_id)
-                modo_id = criar_modo(guild_id, user_id, nome_modo, modo_id_existente=modo_id_existente)
-
+                modo_id = criar_modo(guild_id, user_id, nome_modo)
                 modo_ids[user_id] = modo_id
 
                 # Recarrega dados e garante estrutura
@@ -1217,9 +1189,9 @@ async def on_message(message):
 async def setup(ctx):
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
     idioma = obter_idioma(ctx.guild.id)
     embed = get_setup_embed(idioma)
     await enviar_embed(ctx.channel, ctx.author.id, embed)
@@ -1230,7 +1202,7 @@ async def criar(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     user_id = ctx.author.id
     guild_id = ctx.guild.id
@@ -1272,7 +1244,7 @@ async def editar(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     user_id = ctx.author.id
     guild_id = ctx.guild.id
@@ -1297,7 +1269,7 @@ async def verificar(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_roles_embed(ctx.guild.roles, idioma)
@@ -1315,7 +1287,7 @@ async def funcoes(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_functions_embed(idioma)
@@ -1337,7 +1309,7 @@ async def sobre(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_about_embed(idioma)
@@ -1359,7 +1331,7 @@ async def idioma(ctx):
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
     finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    await limpar_modos_incompletos(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
     embed = get_language_embed(idioma)
