@@ -20,22 +20,30 @@ def salvar_modos(dados):
     with open(CAMINHO_MODOS, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
 
-def criar_modo(server_id, user_id, nome_modo):
+def criar_modo(server_id, user_id, nome_modo, modo_id_existente=None):
     dados = carregar_modos()
     server_id = str(server_id)
     dados.setdefault(server_id, {})
     dados[server_id].setdefault("modos", {})
-    modo_id = str(int(time.time() * 1000))
+
+    # Se estiver editando um modo existente, reaproveita o mesmo ID
+    if modo_id_existente and modo_id_existente in dados[server_id]["modos"]:
+        modo_id = modo_id_existente
+    else:
+        modo_id = str(int(time.time() * 1000))
+
     dados[server_id]["modos"][modo_id] = {
         "nome": nome_modo,
-        "roles": [],
-        "channels": [],
-        "recepcao": False,
+        "roles": dados[server_id]["modos"].get(modo_id, {}).get("roles", []),
+        "channels": dados[server_id]["modos"].get(modo_id, {}).get("channels", []),
+        "recepcao": dados[server_id]["modos"].get(modo_id, {}).get("recepcao", False),
         "criador": str(user_id),
         "em_edicao": True,
         "finalizado": False
     }
+
     salvar_modos(dados)
+    MODOS_CACHE[server_id] = dados[server_id]
     return modo_id
 
 def modo_existe(server_id, nome_modo):
@@ -239,27 +247,29 @@ def finalizar_modos_em_edicao(guild_id, user_id=None):
 
     dados[guild_id_str]["modos"] = modos_guild
     salvar_modos(dados)
+    MODOS_CACHE[guild_id_str] = dados[guild_id_str]
 
-def limpar_modos_incompletos(guild_id):
+async def limpar_modos_incompletos(guild_id, user_id):
     guild_id_str = str(guild_id)
     dados = carregar_modos()
     if guild_id_str not in dados:
         return
 
     modos_guild = dados[guild_id_str].get("modos", {})
-    modos_para_remover = []
 
-    for modo_id, modo in modos_guild.items():
-        if modo.get("em_edicao") is False and modo.get("finalizado") is False:
-            modos_para_remover.append(modo_id)
+    # Remove modos incompletos criados pelo usuário específico
+    modos_para_remover = [
+        modo_id for modo_id, modo in modos_guild.items()
+        if modo.get("criador") == user_id and not modo.get("em_edicao", True) and not modo.get("finalizado", False)
+    ]
 
     for modo_id in modos_para_remover:
         modos_guild.pop(modo_id, None)
 
     dados[guild_id_str]["modos"] = modos_guild
-    # Remove do cache também para evitar "ressurreição"
-    if guild_id_str in MODOS_CACHE:
-        MODOS_CACHE[guild_id_str]["modos"] = modos_guild
+
+    # Atualiza o cache de forma segura
+    MODOS_CACHE[guild_id_str] = dados[guild_id_str]
 
     salvar_modos(dados)
 
@@ -284,3 +294,13 @@ def limpar_modos_usuario(guild_id, user_id):
     dados[guild_id_str]["modos"] = modos_guild
     MODOS_CACHE[guild_id_str] = dados[guild_id_str]
     salvar_modos(dados)
+
+def atualizar_cache(guild_id=None):
+    dados = carregar_modos()
+    if guild_id:
+        guild_str = str(guild_id)
+        if guild_str in dados:
+            MODOS_CACHE[guild_str] = dados[guild_str]
+    else:
+        for gid, gdata in dados.items():
+            MODOS_CACHE[gid] = gdata
