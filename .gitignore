@@ -3,3 +3,5 @@ src/.env
 data/idiomas.json
 data/modos.json
 /src/utils/__pycache__
+data/config_debug.json
+/logs
