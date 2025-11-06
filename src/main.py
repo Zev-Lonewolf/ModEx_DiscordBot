@@ -774,7 +774,7 @@ async def on_guild_join(guild):
         if channel.permissions_for(guild.me).send_messages:
             try:
                 logger.debug(f"Enviando embed de idioma no canal: {channel.name} ({channel.id})")
-                embed = get_language_embed()
+                embed = get_language_embed(idioma, guild)
                 msg = await channel.send(embed=embed)
                 await msg.add_reaction("🇺🇸")
                 await msg.add_reaction("🇧🇷")
@@ -1398,7 +1398,7 @@ async def on_message(message):
             modo_id_existente = modo_existe(guild_id, nome_modo)
             if modo_id_existente:
                 logger.debug(f"[CONFLICT] Modo '{nome_modo}' já existe (id={modo_id_existente}).")
-                embed = get_name_conflict_embed(idioma)
+                embed = get_name_conflict_embed(idioma, nome_modo)
                 criando_modo[user_id] = "nome_conflito"
             else:
                 modo_id = criar_modo(guild_id, user_id, nome_modo)
@@ -1676,7 +1676,7 @@ async def verificar(ctx):
     limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
-    embed = get_roles_embed(ctx.guild.roles, idioma)
+    embed = get_roles_embed(ctx.guild.roles, idioma, ctx.guild)
     msg = await ctx.send(embed=embed)
     await msg.add_reaction("🔙")
 
@@ -1695,7 +1695,7 @@ async def funcoes(ctx):
     limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
-    embed = get_functions_embed(idioma)
+    embed = get_functions_embed(idioma, ctx.guild)
     msg = await ctx.channel.send(embed=embed)
 
     if flow["get_functions_embed"].get("back"):
@@ -1736,12 +1736,12 @@ async def idioma(ctx):
     logger.debug(f"[CMD] idioma chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)  # Não inverta a ordem de finalização e limpeza!
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
     idioma = obter_idioma(ctx.guild.id)
-    embed = get_language_embed(idioma)
+    embed = get_language_embed(idioma, ctx.guild)
     msg = await ctx.send(embed=embed)
 
     await msg.add_reaction("🇺🇸")
@@ -1759,12 +1759,20 @@ async def limpar(ctx):
 @bot.command(name="log", aliases=["Log", "LOG"])
 @commands.has_permissions(manage_guild=True)
 async def toggle_log(ctx):
+    global logger
+
+    logger.debug(f"[CMD] log chamado por {ctx.author} ({ctx.author.id})")
+    await ctx.message.delete()
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
+
     config = carregar_config()
     novo_estado = not config.get("debug_enabled", False)
     config["debug_enabled"] = novo_estado
     salvar_config(config)
 
-    global logger
     logger = configurar_logger()
 
     estado = "ativado ✅" if novo_estado else "desativado ❌"
