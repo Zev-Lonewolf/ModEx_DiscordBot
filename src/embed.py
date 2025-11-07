@@ -424,7 +424,7 @@ def get_initial_create_embed(language):
             ),
             color=discord.Color.teal()
         )
-        embed.set_footer(text="Curiosidade: o primeiro computador pessoal custava mais que um carro novo! 🚗")
+        embed.set_footer(text="🚗 Curiosidade: o primeiro computador pessoal custava mais que um carro novo!")
     else:
         embed = discord.Embed(
             title="🚧 Mode Creation (step 1 of 5)",
@@ -436,7 +436,7 @@ def get_initial_create_embed(language):
             ),
             color=discord.Color.teal()
         )
-        embed.set_footer(text="Fun fact: the first personal computer cost more than a brand-new car! 🚗")
+        embed.set_footer(text="🚗 Fun fact: the first personal computer cost more than a brand-new car!")
     return embed
 
 def get_name_saved_embed(language):
@@ -449,7 +449,7 @@ def get_name_saved_embed(language):
             ),
             color=discord.Color.dark_green()
         )
-        embed.set_footer(text="Dica: nomes simples facilitam identificar os modos depois. 😉")
+        embed.set_footer(text="😉 Dica: nomes simples facilitam identificar os modos depois.")
     else:
         embed = discord.Embed(
             title="✅ Name saved successfully!",
@@ -459,7 +459,7 @@ def get_name_saved_embed(language):
             ),
             color=discord.Color.dark_green()
         )
-        embed.set_footer(text="Tip: simple names make it easier to find modes later. 😉")
+        embed.set_footer(text="😉 Tip: simple names make it easier to find modes later.")
     return embed
 
 def get_invalid_name_embed(language):
@@ -472,7 +472,7 @@ def get_invalid_name_embed(language):
             ),
             color=discord.Color.red()
         )
-        embed.set_footer(text="Curiosidade: o primeiro domínio registrado na internet foi symbolics.com 💻")
+        embed.set_footer(text="💻 Curiosidade: o primeiro domínio registrado na internet foi symbolics.com")
     else:
         embed = discord.Embed(
             title="❌ Invalid name!",
@@ -482,7 +482,7 @@ def get_invalid_name_embed(language):
             ),
             color=discord.Color.red()
         )
-        embed.set_footer(text="Fun fact: the first domain ever registered was symbolics.com 💻")
+        embed.set_footer(text="💻 Fun fact: the first domain ever registered was symbolics.com")
     return embed
 
 def get_name_conflict_embed(language, nome_modo):
@@ -494,7 +494,7 @@ def get_name_conflict_embed(language, nome_modo):
             ),
             color=discord.Color.orange()
         )
-        embed.set_footer(text="Curiosidade: o primeiro computador portátil pesava mais de 10 kg! 💼")
+        embed.set_footer(text="💼 Curiosidade: o primeiro computador portátil pesava mais de 10 kg!")
     else:
         embed = discord.Embed(
             title="⚠️ Name conflict",
@@ -503,7 +503,7 @@ def get_name_conflict_embed(language, nome_modo):
             ),
             color=discord.Color.orange()
         )
-        embed.set_footer(text="Fun fact: the first portable computer weighed over 10 kg! 💼")
+        embed.set_footer(text="💼 Fun fact: the first portable computer weighed over 10 kg!")
     return embed
 
 def get_role_select_embed(language, roles):
@@ -577,64 +577,65 @@ def get_invalid_role_embed(language):
         embed.set_footer(text="💡 Fun fact: the QWERTY keyboard was made to prevent jams!")
     return embed
 
-#PAREI AQUI, CONTINUAREI AMANHÃ
 def get_channel_select_embed(language):
     if language == "pt":
         embed = discord.Embed(
             title="🚧 Criação de Modo (etapa 3 de 5)",
             description=(
-                "Agora escolha quais **canais de texto, voz ou categorias** ficarão **privados** "
-                "para este cargo/modo.\n\n"
-                "📌 _Mencione o canal/categoria ou digite o nome exato._\n"
-                "⚠️ Você precisa ter permissão para gerenciar canais."
+                "📌 Mencione **um ou mais canais** de texto, voz ou categorias que ficarão **privados** "
+                "para este cargo/modo.\n"
+                "Ex: `#geral`, `#staff`, `🎤 Voz VIP`...\n\n"
+                "⚠️ Você precisa ter permissão para **gerenciar canais**."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Mencione ou digite o nome do canal/categoria.")
+        embed.set_footer(text="💡 Curiosidade: o símbolo # para canais veio dos canais de IRC!")
     else:
         embed = discord.Embed(
             title="🚧 Mode Creation (step 3 of 5)",
             description=(
-                "Now choose which **text channels, voice channels, or categories** will be **private** "
-                "for this role/mode.\n\n"
-                "📌 _Mention the channel/category or type the exact name._\n"
-                "⚠️ You need permission to manage channels."
+                "📌 Mention **one or more channels** (text, voice, or categories) that will be **private** "
+                "for this role/mode.\n"
+                "Ex: `#general`, `#staff`, `🎤 VIP Voice`...\n\n"
+                "⚠️ You need permission to **manage channels**."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Mention or type the name of the channel/category.")
+        embed.set_footer(text="💡 Fun fact: the # symbol for channels comes from IRC!")
     return embed
 
 def get_channel_saved_embed(language, channel_name):
     if language == "pt":
         embed = discord.Embed(
             title="✅ Canal/Categoria selecionado!",
-            description=f"O canal/categoria **{channel_name}** foi atribuído ao modo com sucesso.",
+            description=f"🎉 Perfeito! O canal/categoria **{channel_name}** foi atribuído ao modo com sucesso.",
             color=discord.Color.green()
         )
+        embed.set_footer(text="💡 Curiosidade: o primeiro canal de IRC foi criado em 1988!")
     else:
         embed = discord.Embed(
             title="✅ Channel/Category selected!",
-            description=f"The channel/category **{channel_name}** was successfully assigned to the mode.",
+            description=f"🎉 Great! The channel/category **{channel_name}** was successfully assigned to the mode.",
             color=discord.Color.green()
         )
+        embed.set_footer(text="💡 Fun fact: the first IRC channel was created in 1988!")
     return embed
 
 def get_invalid_channel_embed(language):
     if language == "pt":
         embed = discord.Embed(
             title="❌ Canal/Categoria inválido",
-            description="Canal ou categoria não encontrado(a). "
-                        "Por favor, mencione corretamente ou digite o nome exato.",
+            description="⚠️ Canal ou categoria não encontrado(a). Mencione corretamente ou digite o nome exato.",
             color=discord.Color.red()
         )
+        embed.set_footer(text="💡 Curiosidade: o primeiro servidor de chat online foi criado em 1973!")
     else:
         embed = discord.Embed(
             title="❌ Invalid Channel/Category",
-            description="Channel or category not found. "
-                        "Please mention it correctly or type the exact name.",
+            description="⚠️ Channel or category not found. Mention it correctly or type the exact name.",
             color=discord.Color.red()
         )
+        embed.set_footer(text="💡 Fun fact: the first online chat server was created in 1973!")
     return embed
 
 def get_channel_conflict_warning_embed(language, conflict_channels, modo_origem=""):
@@ -644,24 +645,24 @@ def get_channel_conflict_warning_embed(language, conflict_channels, modo_origem=
         embed = discord.Embed(
             title="⚠️ Conflito de Canais Detectado",
             description=(
-                f"Os seguintes canais já estão associados a **outro modo**: {canais_str}.\n\n"
-                "👉 Para continuar, você deve **escolher outros canais** ou **removê-los do modo atual** antes de prosseguir.\n"
+                f"🚧 Os seguintes canais já estão associados a **outro modo**: {canais_str}.\n\n"
+                "👉 Escolha **outros canais** ou **remova-os do modo atual** antes de prosseguir."
                 + (f"\n🔗 Atualmente pertencem ao modo: **{modo_origem}**" if modo_origem else "")
             ),
             color=discord.Color.orange()
         )
-        embed.set_footer(text="🚫 Um canal só pode pertencer a um modo por vez.")
+        embed.set_footer(text="💡 Curiosidade: o primeiro servidor de Discord foi criado em 2015!")
     else:
         embed = discord.Embed(
             title="⚠️ Channel Conflict Detected",
             description=(
-                f"The following channels are already associated with **another mode**: {canais_str}.\n\n"
-                "👉 To proceed, you must **choose different channels** or **remove them from the current mode** first.\n"
+                f"🚧 The following channels are already associated with **another mode**: {canais_str}.\n\n"
+                "👉 Choose **different channels** or **remove them from the current mode** before proceeding."
                 + (f"\n🔗 Currently assigned to mode: **{modo_origem}**" if modo_origem else "")
             ),
             color=discord.Color.orange()
         )
-        embed.set_footer(text="🚫 A channel can only belong to one mode at a time.")
+        embed.set_footer(text="💡 Fun fact: the first Discord server was created in 2015!")
     return embed
 
 def get_channel_removed_warning_embed(language, removed_channels):
@@ -672,64 +673,65 @@ def get_channel_removed_warning_embed(language, removed_channels):
             title="❌ Canais Removidos Detectados",
             description=(
                 f"Os seguintes canais não existem mais no servidor: {canais_str}.\n\n"
-                "👉 Para continuar, você deve **atualizar o modo** e remover os canais que foram apagados."
+                "👉 Atualize o modo removendo os canais apagados para continuar sem problemas."
             ),
             color=discord.Color.red()
         )
-        embed.set_footer(text="⚠️ Canais apagados precisam ser substituídos para evitar erros.")
+        embed.set_footer(text="💡 Curiosidade: canais privados ajudam a organizar servidores grandes!")
     else:
         embed = discord.Embed(
             title="❌ Removed Channels Detected",
             description=(
                 f"The following channels no longer exist in the server: {canais_str}.\n\n"
-                "👉 To continue, you must **update the mode** and remove the deleted channels."
+                "👉 Update the mode by removing the deleted channels to proceed smoothly."
             ),
             color=discord.Color.red()
         )
-        embed.set_footer(text="⚠️ Deleted channels must be replaced to avoid errors.")
+        embed.set_footer(text="💡 Fun fact: private channels help organize large servers!")
     return embed
-
 
 def get_reception_mode_question_embed(language):
     if language == "pt":
         embed = discord.Embed(
             title="🚧 Criação de Modo (etapa 4 de 5)",
             description=(
-                "Deseja atribuir este cargo como **modo de recepção**?\n\n"
-                "📌 Apenas **um modo** pode estar configurado como recepção por vez.\n\n"
-                "✅ Clique em **Sim** para atribuir.\n"
-                "❌ Clique em **Não** para pular."
+                "💬 Deseja definir este cargo como o **modo de recepção**?\n\n"
+                "📌 Apenas **um modo** pode ocupar essa função por vez.\n\n"
+                "✅ Clique em **Sim** para definir.\n"
+                "❌ Clique em **Não** para pular esta etapa."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="Um servidor só pode ter um modo de recepção ativo.")
+        embed.set_footer(text="A Máquina de Turing (1936) deu origem à computação moderna.")
     else:
         embed = discord.Embed(
             title="🚧 Mode Creation (step 4 of 5)",
             description=(
-                "Do you want to assign this role as the **reception mode**?\n\n"
-                "📌 Only **one mode** can be configured as reception at a time.\n\n"
-                "✅ Click **Yes** to assign.\n"
-                "❌ Click **No** to skip."
+                "💬 Would you like to set this role as the **reception mode**?\n\n"
+                "📌 Only **one mode** can have this function at a time.\n\n"
+                "✅ Click **Yes** to set it.\n"
+                "❌ Click **No** to skip this step."
             ),
             color=discord.Color.blue()
         )
-        embed.set_footer(text="A server can only have one reception mode active.")
+        embed.set_footer(text="The Turing Machine (1936) sparked modern computing.")
     return embed
 
 def get_reception_assigned_embed(language, role_name):
     if language == "pt":
         embed = discord.Embed(
-            title="✅ Modo de recepção atribuído",
-            description=f"O cargo **{role_name}** agora é o modo de recepção do servidor.",
+            title="✅ Modo de recepção definido!",
+            description=f"O cargo **{role_name}** agora está configurado como o **modo de recepção** do servidor. 🎉",
             color=discord.Color.green()
         )
+        embed.set_footer(text="Jason Citron, criador do Discord, também fez o app OpenFeint.!")
     else:
         embed = discord.Embed(
-            title="✅ Reception mode assigned",
-            description=f"The role **{role_name}** is now the reception mode of the server.",
+            title="✅ Reception mode set!",
+            description=f"The role **{role_name}** is now configured as the server’s **reception mode**. 🎉",
             color=discord.Color.green()
         )
+        embed.set_footer(text="Jason Citron, Discord’s creator, also made the OpenFeint app.")
     return embed
 
 def get_reception_replaced_embed(language, old_role, new_role):
@@ -737,20 +739,22 @@ def get_reception_replaced_embed(language, old_role, new_role):
         embed = discord.Embed(
             title="⚠️ Modo de recepção atualizado!",
             description=(
-                f"O cargo **{old_role}** não é mais o modo de recepção.\n"
-                f"O cargo **{new_role}** foi atribuído no lugar dele."
+                f"O cargo **{old_role}** deixou de ser o modo de recepção. 🔄\n"
+                f"Agora, o cargo **{new_role}** ocupa essa função no servidor."
             ),
             color=discord.Color.orange()
         )
+        embed.set_footer(text="💡 Curiosidade: a IBM criou o primeiro sistema de login com múltiplos usuários nos anos 60!")
     else:
         embed = discord.Embed(
             title="⚠️ Reception mode updated!",
             description=(
-                f"The role **{old_role}** is no longer the reception mode.\n"
-                f"The role **{new_role}** has been assigned instead."
+                f"The role **{old_role}** is no longer the reception mode. 🔄\n"
+                f"The role **{new_role}** now takes its place on the server."
             ),
             color=discord.Color.orange()
         )
+        embed.set_footer(text="💡 Fun fact: IBM built the first multi-user login system back in the 1960s!")
     return embed
 
 def get_reception_error_embed(language):
@@ -758,35 +762,45 @@ def get_reception_error_embed(language):
         embed = discord.Embed(
             title="❌ Erro ao atribuir modo de recepção",
             description=(
-                "Ocorreu um erro ao tentar configurar este cargo como modo de recepção.\n"
-                "👉 Verifique se o bot tem permissões suficientes (gerenciar canais/cargos)."
+                "Algo deu errado ao tentar definir este cargo como modo de recepção. 😕\n\n"
+                "👉 Verifique se o bot possui as permissões necessárias para **gerenciar canais e cargos**."
             ),
             color=discord.Color.red()
         )
+        embed.set_footer(text="💡 Curiosidade: o Discord foi criado pelos fundadores do Skype e do OpenFeint!")
     else:
         embed = discord.Embed(
             title="❌ Error assigning reception mode",
             description=(
-                "An error occurred while trying to set this role as the reception mode.\n"
-                "👉 Make sure the bot has sufficient permissions (manage channels/roles)."
+                "Something went wrong while trying to set this role as the reception mode. 😕\n\n"
+                "👉 Make sure the bot has permission to **manage channels and roles**."
             ),
             color=discord.Color.red()
         )
+        embed.set_footer(text="💡 Fun fact: Discord was created by the founders of Skype and OpenFeint!")
     return embed
 
 def get_reception_skipped_embed(language, role_name):
     if language == "pt":
         embed = discord.Embed(
             title="ℹ️ Cargo não definido como recepção",
-            description=f"O cargo **{role_name}** foi configurado, mas não será usado como recepção.",
+            description=(
+                f"O cargo **{role_name}** foi configurado com sucesso, "
+                "mas **não será usado como modo de recepção**. 🚪"
+            ),
             color=discord.Color.blue()
         )
+        embed.set_footer(text="💡 Curiosidade: o nome “Skype” vem de “Sky Peer-to-Peer”.")
     else:
         embed = discord.Embed(
             title="ℹ️ Role not set as reception",
-            description=f"The role **{role_name}** has been configured, but will not be used as reception.",
+            description=(
+                f"The role **{role_name}** has been successfully configured, "
+                "but **won’t be used as the reception mode**. 🚪"
+            ),
             color=discord.Color.blue()
         )
+        embed.set_footer(text="💡 Fun fact: “Skype” comes from “Sky Peer-to-Peer”.")
     return embed
 
 def get_finish_mode_embed(language):
@@ -796,12 +810,14 @@ def get_finish_mode_embed(language):
             description="O modo foi configurado com sucesso! 🎉",
             color=discord.Color.green()
         )
+        embed.set_footer(text="💡 Sabia que o nome Noa significa 'movimento' em hebraico? Bonito, né?")
     else:
         embed = discord.Embed(
             title="✅ Mode creation finished",
             description="The mode has been successfully configured! 🎉",
             color=discord.Color.green()
         )
+        embed.set_footer(text="💡 Did you know 'Noa' means 'movement' in Hebrew? Pretty cool, right?")
     return embed
 
 def get_log_info_embed(language):
