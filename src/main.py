@@ -47,7 +47,11 @@ from embed import (
     get_reception_skipped_embed,
     get_finish_mode_embed,
     get_channel_conflict_warning_embed,
-    get_channel_removed_warning_embed
+    get_channel_removed_warning_embed,
+    get_log_info_embed,
+    get_log_confirm_embed,
+    get_log_activated_embed,
+    get_log_deactivated_embed
 )
 
 def resetar_estado_usuario(guild_id, user_id):
@@ -207,7 +211,26 @@ flow = {
     "get_finish_mode_embed": {
         "back": "get_setup_embed",
         "next": None
-    }
+    },
+    "get_log_info_embed": {
+        "back": "get_setup_embed",
+        "next": "get_log_confirm_embed"
+    },
+    "get_log_confirm_embed": {
+        "back": "get_log_info_embed",
+        "next": [
+            "get_log_activated_embed",
+            "get_log_deactivated_embed"
+        ]
+    },
+    "get_log_activated_embed": {
+        "back": "get_setup_embed",
+        "next": None
+    },
+    "get_log_deactivated_embed": {
+        "back": "get_setup_embed",
+        "next": None
+    },
 }
 
 # ----------------- MAPEAMENTO ESTADO ↔ EMBED -----------------
@@ -238,7 +261,11 @@ estado_to_embed = {
     "modo_recepcao_atribuido": "get_reception_assigned_embed",
     "modo_recepcao_trocado": "get_reception_replaced_embed",
     "modo_recepcao_pulado": "get_reception_skipped_embed",
-    "finalizado": "get_finish_mode_embed"
+    "finalizado": "get_finish_mode_embed",
+    "log_info": "get_log_info_embed",
+    "log_confirm": "get_log_confirm_embed",
+    "log_ativado": "get_log_activated_embed",
+    "log_desativado": "get_log_deactivated_embed"
 }
 
 embed_to_estado = {v: k for k, v in estado_to_embed.items()}
@@ -272,6 +299,10 @@ EMBEDS = {
     "get_reception_replaced_embed": get_reception_replaced_embed,
     "get_reception_skipped_embed": get_reception_skipped_embed,
     "get_finish_mode_embed": get_finish_mode_embed,
+    "get_log_info_embed": get_log_info_embed,
+    "get_log_confirm_embed": get_log_confirm_embed,
+    "get_log_activated_embed": get_log_activated_embed,
+    "get_log_deactivated_embed": get_log_deactivated_embed,
 }
 
 # ----------------- FUNÇÕES AUXILIARES -----------------
@@ -821,11 +852,49 @@ async def on_raw_reaction_add(payload):
         return
 
     user_id = payload.user_id
-    guild_id = payload.guild_id  # Principal função para a reação de OK funcionar, não mexa. :D
+    guild_id = payload.guild_id # Principal função para a reação de OK funcionar, não mexa. :D
     idioma = obter_idioma(guild_id)
     current = user_progress.get(guild_id, {}).get(user_id)
 
     logger.debug(f"[TRACE] Reação adicionada por {user_id} em guild {guild_id} | Emoji: {payload.emoji.name} | Current: {current}")
+
+    # --- TRATAMENTO ESPECIAL: confirmação do LOG ---
+    # Se o usuário estiver no fluxo de confirmação de log, ✅ ativa, ❌ desativa, 🔙 volta
+    if current == "get_log_confirm_embed":
+        member = guild.get_member(user_id)
+        # Verifica permissão (manange_guild) como no decorator original
+        if not member or not member.guild_permissions.manage_guild:
+            logger.warning(f"[LOG] Usuário {user_id} sem permissão para alterar logs em guild {guild_id}")
+            return
+
+        # Confirmar ativar debug
+        if payload.emoji.name == "✅":
+            try:
+                config = carregar_config()
+                config["debug_enabled"] = True
+                salvar_config(config)
+                # Reconfigura o logger (pode retornar instância nova)
+                configurar_logger()
+                logger.info(f"[LOG] Debug mode ativado via fluxo pelo usuário {user_id} no servidor {guild_id}")
+            except Exception as e:
+                logger.exception(f"[LOG] Falha ao ativar debug via fluxo: {e}")
+            await go_next(canal, user_id, guild_id, resultado="get_log_activated_embed")
+            return
+
+        # Confirmar desativar debug
+        if payload.emoji.name == "❌":
+            try:
+                config = carregar_config()
+                config["debug_enabled"] = False
+                salvar_config(config)
+                configurar_logger()
+                logger.info(f"[LOG] Debug mode desativado via fluxo pelo usuário {user_id} no servidor {guild_id}")
+            except Exception as e:
+                logger.exception(f"[LOG] Falha ao desativar debug via fluxo: {e}")
+            await go_next(canal, user_id, guild_id, resultado="get_log_deactivated_embed")
+            return
+
+    # Ignora reações do próprio bot (já checado) e tratamento padrão segue...
 
     # -------------------- SELEÇÃO DE IDIOMA --------------------
     if mensagem_idioma_id.get(guild_id) == payload.message_id:
@@ -1768,16 +1837,31 @@ async def toggle_log(ctx):
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
-    config = carregar_config()
-    novo_estado = not config.get("debug_enabled", False)
-    config["debug_enabled"] = novo_estado
-    salvar_config(config)
+    # Em vez de alternar imediatamente, inicia o fluxo de confirmação via embeds
+    idioma = obter_idioma(ctx.guild.id)
+    embed = get_log_info_embed(idioma)
+    msg = await ctx.send(embed=embed)
 
-    logger = configurar_logger()
+    # Adiciona reações: voltar, confirmar (ativar), negar (desativar)
+    try:
+        await msg.add_reaction("🔙")
+    except Exception:
+        logger.debug("[LOG] Falha ao adicionar reação 🔙 (pode ser permissão).")
+    try:
+        await msg.add_reaction("✅")
+    except Exception:
+        logger.debug("[LOG] Falha ao adicionar reação ✅ (pode ser permissão).")
+    try:
+        await msg.add_reaction("❌")
+    except Exception:
+        logger.debug("[LOG] Falha ao adicionar reação ❌ (pode ser permissão).")
 
-    estado = "ativado ✅" if novo_estado else "desativado ❌"
-    await ctx.send(f"🔧 Modo de debug {estado}.")
-    logger.debug(f"[LOG] debug mode {estado} pelo usuário {ctx.author} ({ctx.author.id})")
+    # Atualiza estados para iniciar fluxo
+    mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
+    mensagem_avancar_ids[str(ctx.guild.id)] = msg.id
+    user_progress.setdefault(ctx.guild.id, {})[ctx.author.id] = "get_log_info_embed"
+    push_embed(ctx.author.id, "get_setup_embed")
+    logger.debug(f"[LOG] Fluxo de confirmação de log iniciado para user={ctx.author.id} em guild={ctx.guild.id}")
 
 # ----------------- RODA O BOT -----------------
 bot.run(TOKEN)
