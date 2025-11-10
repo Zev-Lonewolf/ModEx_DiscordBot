@@ -859,7 +859,36 @@ async def on_raw_reaction_add(payload):
     logger.debug(f"[TRACE] Reação adicionada por {user_id} em guild {guild_id} | Emoji: {payload.emoji.name} | Current: {current}")
 
     # --- TRATAMENTO ESPECIAL: confirmação do LOG ---
-    # Se o usuário estiver no fluxo de confirmação de log, ✅ ativa, ❌ desativa, 🔙 volta
+    if current == "get_log_info_embed" and payload.emoji.name == "✅":
+        logger.debug(f"[LOG] Avançando de info para confirm | user={user_id}")
+
+        # Limpeza básica antes de avançar
+        finalizar_modos_em_edicao(guild_id, user_id)
+        limpar_modos_usuario(guild_id, user_id)
+        limpar_modos_incompletos(guild_id)
+
+        # Tenta apagar a mensagem anterior (onde estava o embed de info)
+        try:
+            msg_antiga = await canal.fetch_message(payload.message_id)
+            await msg_antiga.delete()
+            logger.debug(f"[LOG] Mensagem anterior apagada antes de enviar o embed de confirmação.")
+        except Exception as e:
+            logger.warning(f"[LOG] Não foi possível apagar a mensagem anterior: {e}")
+
+        # Envia o embed de confirmação
+        msg = await canal.send(embed=get_log_confirm_embed(idioma, ""))
+
+        try:
+            await msg.add_reaction("🔙")
+            await msg.add_reaction("✅")
+            await msg.add_reaction("❌")
+        except Exception as e:
+            logger.warning(f"[LOG] Falha ao adicionar reações: {e}")
+
+        user_progress[guild_id][user_id] = "get_log_confirm_embed"
+        return
+
+    # Mantém o tratamento existente para get_log_confirm_embed
     if current == "get_log_confirm_embed":
         member = guild.get_member(user_id)
         # Verifica permissão (manange_guild) como no decorator original
@@ -1596,6 +1625,7 @@ async def on_message(message):
         canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
         if canais_removidos:
             logger.debug(f"[VALIDATION] Canais removidos detectados: {canais_removidos}")
+           
             embed = get_channel_removed_warning_embed(idioma, canais_removidos)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
@@ -1851,10 +1881,6 @@ async def toggle_log(ctx):
         await msg.add_reaction("✅")
     except Exception:
         logger.debug("[LOG] Falha ao adicionar reação ✅ (pode ser permissão).")
-    try:
-        await msg.add_reaction("❌")
-    except Exception:
-        logger.debug("[LOG] Falha ao adicionar reação ❌ (pode ser permissão).")
 
     # Atualiza estados para iniciar fluxo
     mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
