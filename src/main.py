@@ -875,8 +875,11 @@ async def on_raw_reaction_add(payload):
         except Exception as e:
             logger.warning(f"[LOG] Não foi possível apagar a mensagem anterior: {e}")
 
-        # Envia o embed de confirmação
-        msg = await canal.send(embed=get_log_confirm_embed(idioma, ""))
+        # Carrega config atual e envia embed mostrando o estado real do log
+        config = carregar_config()
+        debug_logs = config.get("debug_logs", False)
+
+        msg = await canal.send(embed=get_log_confirm_embed(idioma, debug_logs))
 
         try:
             await msg.add_reaction("🔙")
@@ -888,42 +891,42 @@ async def on_raw_reaction_add(payload):
         user_progress[guild_id][user_id] = "get_log_confirm_embed"
         return
 
-    # Mantém o tratamento existente para get_log_confirm_embed
+    # --- CONFIRMAÇÃO DO ESTADO DE LOG ---
     if current == "get_log_confirm_embed":
         member = guild.get_member(user_id)
-        # Verifica permissão (manange_guild) como no decorator original
         if not member or not member.guild_permissions.manage_guild:
             logger.warning(f"[LOG] Usuário {user_id} sem permissão para alterar logs em guild {guild_id}")
             return
 
-        # Confirmar ativar debug
+        # ✅ Ativar logs
         if payload.emoji.name == "✅":
             try:
                 config = carregar_config()
                 config["debug_enabled"] = True
+                config["debug_logs"] = True  # sincroniza
                 salvar_config(config)
-                # Reconfigura o logger (pode retornar instância nova)
                 configurar_logger()
-                logger.info(f"[LOG] Debug mode ativado via fluxo pelo usuário {user_id} no servidor {guild_id}")
+                logger.info(f"[LOG] Debug mode ATIVADO via fluxo pelo usuário {user_id} no servidor {guild_id}")
             except Exception as e:
                 logger.exception(f"[LOG] Falha ao ativar debug via fluxo: {e}")
+
             await go_next(canal, user_id, guild_id, resultado="get_log_activated_embed")
             return
 
-        # Confirmar desativar debug
+        # ❌ Desativar logs
         if payload.emoji.name == "❌":
             try:
                 config = carregar_config()
                 config["debug_enabled"] = False
+                config["debug_logs"] = False  # sincroniza
                 salvar_config(config)
                 configurar_logger()
-                logger.info(f"[LOG] Debug mode desativado via fluxo pelo usuário {user_id} no servidor {guild_id}")
+                logger.info(f"[LOG] Debug mode DESATIVADO via fluxo pelo usuário {user_id} no servidor {guild_id}")
             except Exception as e:
                 logger.exception(f"[LOG] Falha ao desativar debug via fluxo: {e}")
+
             await go_next(canal, user_id, guild_id, resultado="get_log_deactivated_embed")
             return
-
-    # Ignora reações do próprio bot (já checado) e tratamento padrão segue...
 
     # -------------------- SELEÇÃO DE IDIOMA --------------------
     if mensagem_idioma_id.get(guild_id) == payload.message_id:
