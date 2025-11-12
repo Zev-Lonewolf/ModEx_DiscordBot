@@ -264,26 +264,58 @@ def get_edit_embed(server_id, language):
         titulo = "📝 **Editar Modos Existentes**"
         descricao = (
             "➡️ Aqui estão os modos já criados no seu servidor. Para editar um modo, digite o **nome** dele usando `#nomedomodo`.\n\n"
-            "⚙️ **Aviso importante:** ao iniciar a edição, o modo é **redefinido do zero**, "
-            "como se estivesse sendo criado novamente. "
-            "Se o processo for interrompido, o **modo de segurança entra em ação**, "
+            "⚙️ **Avisos importantes sobre a edição:**\n\n"
+            
+            "🔹 **Backup Automático:**\n"
+            "> Ao iniciar a edição, o bot faz automaticamente um **backup dos dados antigos** do modo. "
+            "Este backup é usado **apenas para comparação e limpeza inteligente** durante o processo de edição, "
+            "**não significa** que será possível restaurar o modo anterior caso algo dê errado.\n\n"
+            
+            "🔹 **Limpeza Automática de Permissões:**\n"
+            "> Durante a edição, o bot realizará uma **limpeza automática** das permissões do cargo antigo "
+            "em todos os canais associados ao modo. **Esta ação só funciona para cargos que estão ABAIXO** "
+            "do cargo do bot na hierarquia do servidor.\n\n"
+            
+            "🔹 **Recomendação de Configuração:**\n"
+            "> Para garantir o funcionamento correto, **posicione o cargo do bot ACIMA** de todos os cargos "
+            "que serão usados nos modos. Isso permite que o bot gerencie as permissões automaticamente.\n\n"
+            
+            "🔹 **Modo de Segurança:**\n"
+            "> Se o processo for interrompido, o **modo de segurança entra em ação**, "
             "definindo os parâmetros `em_edicao` e `finalizado` como **False** — "
             "fazendo com que o modo seja **apagado automaticamente do banco de dados**.\n\n"
+            
             "Caso não veja o modo desejado, certifique-se de que ele foi criado corretamente com `!Criar`."
         )
-        rodape = "🗃️ Dica: evite encerrar a edição antes de finalizá-la!"
+        rodape = "🗃️ Dica: configure a hierarquia de cargos corretamente para evitar problemas de permissão!"
     else:
         titulo = "📝 **Edit Existing Modes**"
         descricao = (
             "➡️ Here are the modes already created on your server. To edit a mode, type its **name** using `#modename`.\n\n"
-            "⚙️ **Important note:** when editing begins, the mode is **reset from scratch**, "
-            "as if it were being created again. "
-            "If the process is interrupted, the **safety system kicks in**, "
+            "⚙️ **Important editing notes:**\n\n"
+            
+            "🔹 **Automatic Backup:**\n"
+            "> When editing begins, the bot automatically creates a **backup of the old mode data**. "
+            "This backup is used **only for comparison and intelligent cleanup** during the editing process, "
+            "**it does not mean** it will be possible to restore the previous mode if something goes wrong.\n\n"
+            
+            "🔹 **Automatic Permission Cleanup:**\n"
+            "> During editing, the bot will perform an **automatic cleanup** of the old role's permissions "
+            "in all channels associated with the mode. **This action only works for roles that are BELOW** "
+            "the bot's role in the server hierarchy.\n\n"
+            
+            "🔹 **Setup Recommendation:**\n"
+            "> To ensure proper functioning, **position the bot's role ABOVE** all roles "
+            "that will be used in the modes. This allows the bot to manage permissions automatically.\n\n"
+            
+            "🔹 **Safety System:**\n"
+            "> If the process is interrupted, the **safety system kicks in**, "
             "setting both `in_edit` and `finished` to **False** — "
             "which makes the mode **automatically deleted from the database**.\n\n"
-            "If you don’t see the desired mode, make sure it was properly created using `!Create`."
+            
+            "If you don't see the desired mode, make sure it was properly created using `!Create`."
         )
-        rodape = "🗃️ Tip: avoid closing the editing process before finishing it!"
+        rodape = "🗃️ Tip: configure the role hierarchy correctly to avoid permission issues!"
 
     if modos:
         lista_modos = "\n".join(
