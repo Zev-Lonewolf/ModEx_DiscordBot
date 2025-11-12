@@ -1,6 +1,7 @@
 import json
 import os
 import discord
+from utils.logger_manager import logger
 from config import CAMINHO_MODOS, MODOS_CACHE
 import time
 
@@ -162,39 +163,107 @@ def reset_edicao(guild_id: int, user_id: int = None):
     
     salvar_modos(dados)
 
-async def atualizar_permissoes_canal(canal, role, overwrite=False):
+async def atualizar_permissoes_canal(canal, novo_cargo, bot_instance, criando_modo_dict, overwrite=False, modo_id=None, guild_id=None, user_id=None):
     try:
-        overwrites = canal.overwrites.copy()
-
-        overwrites[canal.guild.default_role] = discord.PermissionOverwrite(
-            view_channel=False,
-            send_messages=False,
-            connect=False,
-            speak=False
-        )
-
-        overwrites[role] = discord.PermissionOverwrite(
-            view_channel=True,
-            send_messages=True,
-            connect=True,
-            speak=True
-        )
-
-        await canal.edit(overwrites=overwrites)
-
+        logger.debug(f"[PERMISSÕES] Iniciando atualização para canal {canal.name}, cargo {novo_cargo.name}, modo={modo_id}")
+        
+        # ✅ CORREÇÃO: Usar o backup dos cargos antigos
+        if overwrite and user_id and 'backup_data' in criando_modo_dict and user_id in criando_modo_dict['backup_data']:
+            backup = criando_modo_dict['backup_data'][user_id]
+            cargos_antigos = backup.get('cargos_antigos', [])
+            
+            logger.debug(f"[BACKUP] Cargos antigos para limpeza: {cargos_antigos}")
+            
+            # Remove APENAS os cargos antigos DESTE MODO
+            cargos_removidos = []
+            for role_id in cargos_antigos:
+                try:
+                    role_id_int = int(role_id)
+                    # Não remove o novo cargo (se estiver na lista de antigos)
+                    if role_id_int == novo_cargo.id:
+                        continue
+                        
+                    role = canal.guild.get_role(role_id_int)
+                    if role:
+                        # Verificar se o bot tem permissão para gerenciar este cargo
+                        bot_member = canal.guild.get_member(bot_instance.user.id)
+                        if bot_member and role.position < bot_member.top_role.position:
+                            await canal.set_permissions(role, overwrite=None)
+                            cargos_removidos.append(role.name)
+                            logger.debug(f"[PERMISSÕES] Removido cargo antigo {role.name} do canal {canal.name}")
+                        else:
+                            logger.warning(f"[PERMISSÕES] Cargo {role.name} está acima do bot na hierarquia - pulando")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"[PERMISSÕES] Erro ao processar cargo antigo {role_id}: {e}")
+                    continue
+            
+            if cargos_removidos:
+                logger.info(f"[PERMISSÕES] Cargos antigos removidos de {canal.name}: {', '.join(cargos_removidos)}")
+            else:
+                logger.debug(f"[PERMISSÕES] Nenhum cargo antigo removido de {canal.name}")
+        
+        # Agora aplica as permissões para o novo cargo
+        try:
+            # Verificar se o bot tem permissão para modificar este cargo específico
+            bot_member = canal.guild.get_member(bot_instance.user.id)
+            if bot_member and novo_cargo.position < bot_member.top_role.position:
+                # Define permissões para visualizar o canal
+                await canal.set_permissions(
+                    novo_cargo,
+                    read_messages=True,
+                    send_messages=True,
+                    view_channel=True,
+                    connect=True if isinstance(canal, discord.VoiceChannel) else None
+                )
+                logger.debug(f"[PERMISSÕES] Permissões concedidas para {novo_cargo.name} em {canal.name}")
+                return True
+            else:
+                logger.warning(f"[PERMISSÕES] Bot não pode modificar cargo {novo_cargo.name} - hierarquia insuficiente")
+                return False
+            
+        except discord.Forbidden:
+            logger.error(f"[PERMISSÕES] Sem permissão para definir permissões para {novo_cargo.name} em {canal.name}")
+            return False
+        except discord.HTTPException as e:
+            logger.error(f"[PERMISSÕES] Erro ao definir permissões: {e}")
+            return False
+            
     except Exception as e:
-        print(f"[ERROR] Falha ao atualizar permissões em {getattr(canal, 'name', str(canal))}: {e}")
+        logger.error(f"[PERMISSÕES] Erro geral em atualizar_permissoes_canal: {e}")
+        return False
 
 def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
-    modo = modos[str(guild_id)]["modos"][modo_id]
-    roles = modo.get("roles", [])
-    cargo_antigo_id = roles[0] if roles else None
-
-    if novo_cargo_id:
-        modo["roles"] = [str(novo_cargo_id)]
-    else:
-        modo["roles"] = []
-
+    guild_id_str = str(guild_id)
+    
+    if guild_id_str not in modos:
+        return None, novo_cargo_id
+    
+    # Encontra o modo de recepção atual
+    modo_recepcao_anterior = None
+    cargo_antigo_id = None
+    
+    for mid, modo_data in modos[guild_id_str]["modos"].items():
+        if modo_data.get("recepcao"):
+            modo_recepcao_anterior = mid
+            if modo_data.get("roles"):
+                cargo_antigo_id = int(modo_data["roles"][0])
+            break
+    
+    # Se é o mesmo cargo, não faz nada
+    if cargo_antigo_id == novo_cargo_id:
+        return cargo_antigo_id, novo_cargo_id
+    
+    # Remove recepção de todos os modos
+    for mid in modos[guild_id_str]["modos"]:
+        modos[guild_id_str]["modos"][mid]["recepcao"] = False
+    
+    # Define o novo modo como recepção
+    if modo_id in modos[guild_id_str]["modos"]:
+        modos[guild_id_str]["modos"][modo_id]["recepcao"] = True
+    
+    salvar_modos(modos)
+    
+    logger.info(f"[RECEPÇÃO] Cargo de recepção substituído: {cargo_antigo_id} → {novo_cargo_id}")
     return cargo_antigo_id, novo_cargo_id
 
 def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):

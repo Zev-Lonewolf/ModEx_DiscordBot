@@ -614,6 +614,11 @@ async def go_back(canal, user_id, guild_id):
                     embed = embed_func(idioma, roles, canal.guild)
                 except TypeError:
                     embed = embed_func(idioma)
+
+        # CORREÇÃO: Adicionar caso especial para get_edit_embed
+        elif back_embed == "get_edit_embed":
+            logger.debug("[TRACE] Gerando embed de edição para voltar...")
+            embed = embed_func(guild_id, idioma)  # CORREÇÃO: passar guild_id e idioma
         
         else:
             embed = embed_func(idioma)
@@ -717,6 +722,7 @@ async def on_member_join(member):
         logger.info(f"Cargo de recepção '{role.name}' atribuído a {member.name}")
     except Exception as e:
         logger.error(f"Falha ao atribuir cargo de recepção: {e}", exc_info=True)
+
 @bot.event
 async def on_raw_reaction_add(payload):
     logger.debug(f"Evento on_raw_reaction_add detectado: user={payload.user_id}, emoji={payload.emoji.name}, guild={payload.guild_id}, channel={payload.channel_id}")
@@ -927,12 +933,22 @@ async def on_raw_reaction_add(payload):
 
             logger.debug(f"[TRACE] Canais válidos obtidos: {[ch.name for ch in canais_validos]}")
 
+            recepcao_anterior = None
+            
             # Atualiza recepção apenas se tiver cargo e canais
             if novo_role and canais_validos:
                 try:
-                    # Atualiza permissões
                     for ch in canais_validos:
-                        await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
+                        success = await atualizar_permissoes_canal(
+                            ch, 
+                            novo_role,  # ou 'role' na segunda ocorrência
+                            bot, 
+                            overwrite=True,
+                            modo_id=modo_id,
+                            guild_id=guild_id,
+                            user_id=user_id,
+                            criando_modo_dict=criando_modo  # CORREÇÃO: Adicionar este parâmetro
+                        )
 
                     # Marca este modo como recepção e desmarca os demais
                     for mid, mdata in modos[str(guild_id)]["modos"].items():
@@ -981,6 +997,12 @@ async def on_raw_reaction_add(payload):
                     salvar_modos(modos)
                     MODOS_CACHE[str(guild_id)]["modos"][modo_id] = modo
                     logger.info(f"[INFO] Modo {modo_id} marcado como finalizado com sucesso.")
+
+                    # Limpar backup
+                    if 'backup_data' in criando_modo and user_id in criando_modo['backup_data']:
+                        del criando_modo['backup_data'][user_id]
+                        logger.debug(f"[BACKUP] Backup limpo para usuário {user_id}")
+                        
             except Exception as e:
                 logger.exception(f"[WARN] Falha ao marcar modo {modo_id} como finalizado no ✅: {e}")
 
@@ -1080,12 +1102,23 @@ async def on_raw_reaction_add(payload):
                     canais_validos.append(ch)
             logger.debug(f"Canais válidos resolvidos: {[c.name for c in canais_validos]}")
 
+            recepcao_anterior = None
+            
             # Atualiza recepção apenas se tiver cargo e canais
             if novo_role and canais_validos:
                 try:
                     # Atualiza permissões
                     for ch in canais_validos:
-                        await atualizar_permissoes_canal(ch, novo_role, overwrite=em_edicao.get(user_id, False))
+                        success = await atualizar_permissoes_canal(
+                            ch, 
+                            novo_role,  # ou 'role' na segunda ocorrência
+                            bot, 
+                            overwrite=True,
+                            modo_id=modo_id,
+                            guild_id=guild_id,
+                            user_id=user_id,
+                            criando_modo_dict=criando_modo  # CORREÇÃO: Adicionar este parâmetro
+                        )
                     logger.info(f"Permissões atualizadas para cargo '{novo_role.name}' em {len(canais_validos)} canais.")
 
                     # Marca este modo como recepção e desmarca os demais
@@ -1248,11 +1281,19 @@ async def on_raw_reaction_add(payload):
         if role and canais_validos:
             try:
                 for ch in canais_validos:
-                    await atualizar_permissoes_canal(ch, role, overwrite=True)
+                    success = await atualizar_permissoes_canal(
+                        ch, 
+                        role,
+                        bot, 
+                        overwrite=True,
+                        modo_id=modo_id,
+                        guild_id=guild_id,
+                        user_id=user_id,
+                        criando_modo_dict=criando_modo  # CORREÇÃO: Adicionar este parâmetro
+                    )
                 logger.info(f"Permissões atualizadas para cargo '{role.name}' ({role.id}) nos canais válidos: {len(canais_validos)}")
             except Exception as e:
                 logger.exception(f"Falha ao atualizar permissões no ❌ (cargo {role.name if role else 'N/A'}) — {e}")
-                print(f"[ERROR] Falha ao privar canais no ❌: {e}")
 
         # Continua o fluxo normal
         role_name = role.name if role else "N/A"
@@ -1323,11 +1364,38 @@ async def on_message(message):
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
-            user_progress[guild_id][user_id] = "get_invalid_mode_embed"  # ATUALIZA ESTADO
+            user_progress[guild_id][user_id] = "get_invalid_mode_embed"
             criando_modo[user_id] = "erro_iniciacao_edicao"
             return
 
-        if str(guild_id) not in dados:
+        # ✅ CORREÇÃO: FAZER BACKUP ANTES DE QUALQUER OUTRA OPERAÇÃO
+        modos = carregar_modos()
+        modo_antigo = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id, {})
+        
+        # Backup dos dados ANTIGOS antes de limpar
+        cargos_antigos = modo_antigo.get("roles", [])[:]  # Faz uma cópia
+        canais_antigos = modo_antigo.get("channels", [])[:]  # Faz uma cópia
+        nome_antigo = modo_antigo.get("nome", "")
+        
+        logger.debug(f"[BACKUP] Backup feito ANTES da edição:")
+        logger.debug(f"[BACKUP] - Modo ID: {modo_id}")
+        logger.debug(f"[BACKUP] - Nome antigo: {nome_antigo}") 
+        logger.debug(f"[BACKUP] - Cargos antigos: {cargos_antigos}")
+        logger.debug(f"[BACKUP] - Canais antigos: {canais_antigos}")
+        
+        # Salva o backup no estado do usuário
+        if 'backup_data' not in criando_modo:
+            criando_modo['backup_data'] = {}
+        criando_modo['backup_data'][user_id] = {
+            'cargos_antigos': cargos_antigos,
+            'canais_antigos': canais_antigos,
+            'modo_id': modo_id,
+            'nome_antigo': nome_antigo
+        }
+
+        # ✅ AGORA SIM pode limpar e preparar para a edição
+        dados = carregar_modos()
+        if guild_id and str(guild_id) not in dados:
             dados[str(guild_id)] = {"modos": {}}
             logger.info(f"[EDIT] Criada nova estrutura de dados para guilda {guild_id}.")
 
@@ -1358,6 +1426,7 @@ async def on_message(message):
 
         logger.debug(f"[EDIT] Embed de edição enviado para o modo '{nome_modo}' com reações configuradas.")
         return
+
     # -------------------- ETAPA NOME (criação ou edição) --------------------
     if message.content.startswith("#"):
         logger.debug(f"[FLOW] Detectado início da etapa de nome. Conteúdo: {message.content}")
@@ -1387,18 +1456,26 @@ async def on_message(message):
             logger.debug(f"[STATE] Usuário {user_id} marcado como 'nome_invalido'. Embed de aviso enviada.")
             return
 
+        # ✅ CORREÇÃO: Carregar dados ANTES de verificar edição
+        dados = carregar_modos()
         modo_id = modo_ids.get(user_id)
+        
+        # ✅ CORREÇÃO: Verificar se está editando usando o backup_data
         esta_editando = (
-            modo_id and dados.get(str(guild_id), {}).get("modos", {}).get(modo_id, {}).get("em_edicao", False)
+            modo_id and 
+            dados.get(str(guild_id), {}).get("modos", {}).get(modo_id, {}).get("em_edicao", False)
         )
         logger.debug(f"[CHECK] modo_id={modo_id}, está_editando={esta_editando}")
 
         if esta_editando:
             # -------------------- EDIÇÃO --------------------
             logger.debug(f"[EDIT] Editando modo existente (id={modo_id}) com novo nome: '{nome_modo}'")
+            
+            # ✅ CORREÇÃO: MANTER os dados antigos do backup, só atualizar o nome
             dados[str(guild_id)]["modos"][modo_id]["nome"] = nome_modo
             salvar_modos(dados)
             MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = dados[str(guild_id)]["modos"][modo_id]
+            
             embed = get_name_saved_embed(idioma)
             criando_modo[user_id] = "nome_salvo"
             logger.debug(f"[EDIT] Nome do modo atualizado e salvo no cache.")
@@ -1442,10 +1519,18 @@ async def on_message(message):
         user_progress.setdefault(guild_id, {})[user_id] = "get_name_saved_embed"
         logger.debug(f"[STATE] user_progress atualizado: user={user_id}, guild={guild_id}, step='get_name_saved_embed'.")
         return
-    
+
     # -------------------- ETAPA CARGO --------------------
     if estado == "selecionando_cargo":
         logger.debug(f"[FLOW] Iniciando etapa de seleção de cargo para user={user_id}, guild={guild_id}.")
+        
+        # ✅ DEBUG: Verificar se temos backup
+        if 'backup_data' in criando_modo and user_id in criando_modo['backup_data']:
+            backup = criando_modo['backup_data'][user_id]
+            logger.debug(f"[DEBUG] Backup encontrado na etapa de cargo: cargos_antigos={backup['cargos_antigos']}, canais_antigos={backup['canais_antigos']}")
+        else:
+            logger.debug(f"[DEBUG] Nenhum backup encontrado para user {user_id}")
+        
         roles = []
 
         if message.role_mentions:
@@ -1478,6 +1563,67 @@ async def on_message(message):
             criando_modo[user_id] = "cargo_invalido"
             logger.debug(f"[STATE] usuário {user_id} marcado como 'cargo_invalido'. Embed enviado.")
             return
+
+        # --- NOVA FUNCIONALIDADE: Limpeza inteligente de cargos antigos durante EDIÇÃO ---
+        if em_edicao.get(user_id, False) and modo_ids.get(user_id):
+            modo_id = modo_ids[user_id]
+            logger.debug(f"[CLEANUP] Modo em edição detectado. Executando limpeza inteligente para modo {modo_id}")
+            
+            # Carrega dados do modo atual
+            modos = carregar_modos()
+            guild_id_str = str(guild_id)
+            
+            if guild_id_str in modos and modo_id in modos[guild_id_str]["modos"]:
+                modo = modos[guild_id_str]["modos"][modo_id]
+                
+                # Verifica se tem cargo antigo definido
+                if modo.get("roles"):
+                    cargo_antigo_id = int(modo["roles"][0])
+                    cargo_antigo = message.guild.get_role(cargo_antigo_id)
+                    
+                    if cargo_antigo:
+                        # Verifica se o bot pode gerenciar este cargo
+                        bot_member = message.guild.get_member(bot.user.id)
+                        bot_posicao = bot_member.top_role.position
+                        cargo_posicao = cargo_antigo.position
+                        
+                        if cargo_posicao < bot_posicao:
+                            # Bot tem permissão para gerenciar este cargo
+                            if modo.get("channels"):
+                                canais_limpos = []
+                                erros_limpeza = []
+                                
+                                for canal_data in modo["channels"]:
+                                    try:
+                                        canal_id = int(canal_data.id) if hasattr(canal_data, "id") else int(canal_data)
+                                        canal = message.guild.get_channel(canal_id)
+                                        
+                                        if canal:
+                                            # Verifica se o bot tem permissão de gerenciar canais
+                                            bot_permissions = canal.permissions_for(bot_member)
+                                            if bot_permissions.manage_roles:
+                                                # Remove as permissões do cargo antigo
+                                                await canal.set_permissions(cargo_antigo, overwrite=None)
+                                                canais_limpos.append(canal)
+                                                logger.debug(f"[CLEANUP] Cargo antigo {cargo_antigo.name} removido do canal {canal.name}")
+                                            else:
+                                                erros_limpeza.append(f"Sem permissão para gerenciar canal {canal.name}")
+                                                logger.warning(f"[CLEANUP] Bot sem permissão para gerenciar canal {canal.name}")
+                                    except Exception as e:
+                                        erros_limpeza.append(f"Erro ao limpar canal {canal_id}: {str(e)}")
+                                        logger.error(f"[CLEANUP] Falha ao remover cargo antigo de canal {canal_id}: {e}")
+                                
+                                if canais_limpos:
+                                    logger.info(f"[CLEANUP] Limpeza concluída: cargo {cargo_antigo.name} removido de {len(canais_limpos)} canais")
+                                
+                                if erros_limpeza:
+                                    logger.warning(f"[CLEANUP] Erros durante limpeza: {erros_limpeza}")
+                            else:
+                                logger.debug("[CLEANUP] Nenhum canal definido no modo para limpar")
+                        else:
+                            logger.warning(f"[CLEANUP] Bot não tem permissão para gerenciar cargo {cargo_antigo.name} (posição muito alta)")
+                    else:
+                        logger.warning(f"[CLEANUP] Cargo antigo com ID {cargo_antigo_id} não encontrado no servidor")
 
         try:
             salvar_roles_modo(guild_id, modo_ids[user_id], roles)
@@ -1512,6 +1658,7 @@ async def on_message(message):
         mensagem_avancar_ids[str(guild_id)] = msg.id
         logger.debug(f"[STATE] Cargo '{role.name}' salvo com sucesso. user_progress atualizado para 'get_role_saved_embed'.")
         return
+
     # -------------------- ETAPA CANAL / ATRIBUIR RECEPÇÃO --------------------
     if estado == "selecionando_canal":
         logger.debug(f"[FLOW] Iniciando etapa de seleção de canal para user={user_id}, guild={guild_id}.")
@@ -1540,7 +1687,7 @@ async def on_message(message):
         canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
         if canais_removidos:
             logger.debug(f"[VALIDATION] Canais removidos detectados: {canais_removidos}")
-           
+        
             embed = get_channel_removed_warning_embed(idioma, canais_removidos)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
