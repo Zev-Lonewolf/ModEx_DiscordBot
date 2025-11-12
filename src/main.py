@@ -1293,6 +1293,16 @@ async def on_message(message):
 
     logger.debug(f"Mensagem recebida de {message.author} (ID: {user_id}) no servidor {guild_id or 'DM'} | Estado atual: {estado}, Current: {current}")
 
+    # --- NOVA VERIFICAÇÃO: Ignorar mensagens com # no get_mode_selected_embed ---
+    if current == "get_mode_selected_embed" and message.content.startswith("#"):
+        logger.debug("[SKIP] Ignorando mensagem de nome dentro de get_mode_selected_embed.")
+        return
+
+    # --- VERIFICAÇÃO EXISTENTE: Ignorar mensagens com # no get_create_embed ---
+    if current == "get_create_embed" and message.content.startswith("#"):
+        logger.debug("[SKIP] Ignorando mensagem de nome dentro de get_create_embed.")
+        return
+
     dados = carregar_modos()
     if guild_id and str(guild_id) not in dados:
         dados[str(guild_id)] = {"modos": {}}
