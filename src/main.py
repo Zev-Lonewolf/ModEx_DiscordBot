@@ -1,4 +1,6 @@
 import re
+import os
+import json
 import discord
 from discord.ext import commands
 from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
@@ -306,12 +308,40 @@ EMBEDS = {
 }
 
 # ----------------- FUNÇÕES AUXILIARES -----------------
-idiomas = carregar_idiomas()
-logger.debug("[INIT] Idiomas carregados com sucesso.")
+# Esta linha foi removida porque já é carregada no módulo idiomas
+logger.debug("[INIT] Módulo de idiomas inicializado")
 
 def push_embed(user_id, estado, *args):
     historico_embeds.setdefault(user_id, []).append((estado, args))
     logger.debug(f"[EMBED] push_embed chamado | user_id={user_id}, estado={estado}, args={args}")
+
+def inicializar_estado_usuario(guild_id, user_id):
+    if guild_id not in user_progress:
+        user_progress[guild_id] = {}
+    
+    user_progress[guild_id][user_id] = "get_greeting_embed"
+    
+    # Limpa qualquer estado anterior residual
+    criando_modo.pop(user_id, None)
+    modo_ids.pop(user_id, None)
+    historico_embeds.pop(user_id, None)
+    em_edicao.pop(user_id, None)
+    modo_atual.pop(user_id, None)
+
+def verificar_arquivo_idiomas():
+    """Verifica se o arquivo de idiomas existe e é acessível"""
+    try:
+        if os.path.exists(CAMINHO_IDIOMAS):
+            with open(CAMINHO_IDIOMAS, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            logger.debug(f"[VERIFICAÇÃO] Arquivo idiomas.json carregado com {len(data)} servidores")
+            return True
+        else:
+            logger.debug("[VERIFICAÇÃO] Arquivo idiomas.json não existe, será criado automaticamente")
+            return False
+    except Exception as e:
+        logger.error(f"[VERIFICAÇÃO] Erro ao verificar arquivo idiomas.json: {e}")
+        return False
 
 def pop_embed(user_id):
     if historico_embeds.get(user_id):
@@ -347,6 +377,14 @@ async def enviar_embed(canal, user_id, embed):
 async def go_next(canal, user_id, guild_id, resultado=None):
     logger.debug(f"[FLOW] user_progress atual no início: {user_progress.get(guild_id, {}).get(user_id)}")
     logger.debug(f"[FLOW] go_next iniciado | user={user_id}, guild={guild_id}, resultado={resultado}")
+
+    # Garante que o usuário/servidor tem estado inicializado
+    if guild_id not in user_progress:
+        user_progress[guild_id] = {}
+    
+    if user_id not in user_progress[guild_id]:
+        # Se não tem estado, assume que está começando do greeting
+        user_progress[guild_id][user_id] = "get_greeting_embed"
 
     idioma = obter_idioma(guild_id)
     extra_args = ()
@@ -682,20 +720,27 @@ async def go_back(canal, user_id, guild_id):
 @bot.event
 async def on_ready():
     print(f"Usuário conectado: {bot.user}!")
+    verificar_arquivo_idiomas()
 
 @bot.event
 async def on_guild_join(guild):
     logger.info(f"Bot entrou no servidor: {guild.name} (ID: {guild.id})")
 
+    # garante que o servidor tem uma entrada no sistema de idiomas
+    obter_idioma(guild.id)  # Isso cria a entrada se não existir
+    
     for channel in guild.text_channels:
         if channel.permissions_for(guild.me).send_messages:
             try:
                 logger.debug(f"Enviando embed de idioma no canal: {channel.name} ({channel.id})")
-                embed = get_language_embed(idioma, guild)
+                
+                # Usa inglês como padrão inicial para a mensagem de idioma
+                embed = get_language_embed("en", guild)
                 msg = await channel.send(embed=embed)
                 await msg.add_reaction("🇺🇸")
                 await msg.add_reaction("🇧🇷")
                 mensagem_idioma_id[str(guild.id)] = msg.id
+                
                 logger.info(f"Mensagem de idioma enviada com sucesso em {channel.name}")
             except Exception as e:
                 logger.error(f"Erro ao enviar mensagem de idioma em {channel.name}: {e}", exc_info=True)
@@ -815,27 +860,53 @@ async def on_raw_reaction_add(payload):
             return
 
     # -------------------- SELEÇÃO DE IDIOMA --------------------
-    if mensagem_idioma_id.get(guild_id) == payload.message_id:
+    if str(guild_id) in mensagem_idioma_id and mensagem_idioma_id[str(guild_id)] == payload.message_id:
+        logger.debug(f"[IDIOMA] Reação de idioma detectada: {payload.emoji.name} por {user_id}")
+        
         if payload.emoji.name == "🇧🇷":
             definir_idioma(guild_id, "pt")
             idioma = "pt"
+            logger.debug(f"[IDIOMA] Idioma definido como português para guild {guild_id}")
         elif payload.emoji.name == "🇺🇸":
             definir_idioma(guild_id, "en")
             idioma = "en"
+            logger.debug(f"[IDIOMA] Idioma definido como inglês para guild {guild_id}")
         else:
+            logger.debug(f"[IDIOMA] Emoji não reconhecido: {payload.emoji.name}")
             return
 
         try:
+            # Remove a reação do usuário
             msg = await canal.fetch_message(payload.message_id)
-            await msg.delete()
+            await msg.remove_reaction(payload.emoji, payload.member)
+            logger.debug(f"[IDIOMA] Reação removida da mensagem")
         except Exception as e:
-            logger.error(f"Não foi possível deletar a mensagem de idioma: {e}", exc_info=True)
+            logger.debug(f"[IDIOMA] Não foi possível remover reação: {e}")
 
         try:
+            # Deleta a mensagem de idioma
+            await msg.delete()
+            logger.debug(f"[IDIOMA] Mensagem de idioma deletada")
+            
+            # INICIALIZA O ESTADO DO USUÁRIO
+            if guild_id not in user_progress:
+                user_progress[guild_id] = {}
+            user_progress[guild_id][user_id] = "get_greeting_embed"
+            
+            # Envia o embed de greeting
             embed_greeting = get_greeting_embed(idioma)
-            await canal.send(embed=embed_greeting)
+            msg_greeting = await canal.send(embed=embed_greeting)
+            
+            # Adiciona reação para avançar
+            await msg_greeting.add_reaction("✅")
+            
+            # Atualiza IDs para navegação
+            mensagem_avancar_ids[str(guild_id)] = msg_greeting.id
+            
+            logger.debug(f"[IDIOMA] Embed de greeting enviado com sucesso")
+            
         except Exception as e:
-            logger.error(f"Não foi possível enviar o embed de saudação: {e}", exc_info=True)
+            logger.error(f"[IDIOMA] Erro no processamento pós-seleção: {e}", exc_info=True)
         return
     
     # -------------------- VOLTAR --------------------
@@ -1328,6 +1399,12 @@ async def on_message(message):
 
     user_id = message.author.id
     guild_id = message.guild.id if message.guild else None
+    
+    # SE NÃO É COMANDO E NÃO ESTÁ NO FLUXO ATIVO, IGNORA
+    if not message.content.startswith(PREFIX) and user_id not in criando_modo:
+        logger.debug(f"[SKIP] Mensagem normal ignorada: {message.content[:50]}...")
+        return
+
     idioma = obter_idioma(guild_id) if guild_id else "pt"
     estado = criando_modo.get(user_id)
     current = user_progress.get(guild_id, {}).get(user_id)
