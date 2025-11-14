@@ -364,7 +364,6 @@ def inicializar_estado_usuario(guild_id, user_id):
     modo_atual.pop(user_id, None)
 
 def verificar_arquivo_idiomas():
-    """Verifica se o arquivo de idiomas existe e é acessível"""
     try:
         if os.path.exists(CAMINHO_IDIOMAS):
             with open(CAMINHO_IDIOMAS, 'r', encoding='utf-8') as f:
@@ -578,7 +577,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
     logger.debug(f"[FLOW] go_next concluído | user={user_id}, next={next_embed_name}")
 
 async def finalizar_modo_fluxo(canal, user_id, guild_id, idioma):
-    """Função auxiliar para finalizar modo no fluxo"""
     logger.debug(f"[FLOW] Finalizando modo | user={user_id}, guild={guild_id}")
     
     modos = carregar_modos()
@@ -729,6 +727,112 @@ async def go_back(canal, user_id, guild_id):
         logger.debug("[FLOW] Estado de edição resetado")
 
     logger.debug(f"[FLOW] go_back concluído | user={user_id}, back={back_embed}")
+
+async def apagar_modo_completo(guild_id, modo_id):
+    try:
+        logger.debug(f"[DELETE] Iniciando apagamento completo do modo {modo_id} no servidor {guild_id}")
+        
+        modos = carregar_modos()
+        guild_id_str = str(guild_id)
+        
+        if guild_id_str not in modos or modo_id not in modos[guild_id_str]["modos"]:
+            logger.warning(f"[DELETE] Modo {modo_id} não encontrado no servidor {guild_id}")
+            return False
+
+        modo = modos[guild_id_str]["modos"][modo_id]
+        modo_nome = modo.get("nome", "Desconhecido")
+        
+        # Obter a guild
+        guild = bot.get_guild(guild_id)
+        if not guild:
+            logger.error(f"[DELETE] Guild {guild_id} não encontrada")
+            return False
+
+        # Resetar permissões dos canais antes de apagar o modo
+        canais_para_resetar = modo.get("channels", [])
+        cargo_id = modo.get("roles", [None])[0] if modo.get("roles") else None
+        cargo = guild.get_role(int(cargo_id)) if cargo_id else None
+        
+        logger.debug(f"[DELETE] Resetando {len(canais_para_resetar)} canais do modo '{modo_nome}'")
+        
+        canais_resetados = 0
+        erros_reset = []
+        
+        for canal_data in canais_para_resetar:
+            try:
+                canal_id = int(canal_data.id) if hasattr(canal_data, "id") else int(canal_data)
+                canal = guild.get_channel(canal_id)
+                
+                if canal:
+                    # Resetar permissões do canal
+                    sucesso = await resetar_permissoes_canal(canal, cargo)
+                    if sucesso:
+                        canais_resetados += 1
+                        logger.debug(f"[DELETE] Canal {canal.name} resetado com sucesso")
+                    else:
+                        erros_reset.append(f"Canal {canal.name} ({canal.id})")
+                else:
+                    logger.warning(f"[DELETE] Canal {canal_id} não encontrado no servidor")
+                    
+            except Exception as e:
+                erro_msg = f"Canal {canal_id}: {str(e)}"
+                erros_reset.append(erro_msg)
+                logger.error(f"[DELETE] Erro ao resetar canal {canal_id}: {e}")
+
+        # Agora apaga o modo usando a função existente
+        sucesso_apagar = apagar_modo(guild_id, modo_id)
+        
+        if sucesso_apagar:
+            logger.info(f"[DELETE] Modo '{modo_nome}' ({modo_id}) apagado com sucesso")
+            logger.info(f"[DELETE] {canais_resetados}/{len(canais_para_resetar)} canais resetados")
+        else:
+            logger.error(f"[DELETE] Falha ao apagar modo {modo_id} após resetar canais")
+        
+        if erros_reset:
+            logger.warning(f"[DELETE] Erros ao resetar canais: {erros_reset}")
+        
+        return sucesso_apagar
+        
+    except Exception as e:
+        logger.error(f"[DELETE] Erro crítico ao apagar modo {modo_id}: {e}", exc_info=True)
+        return False
+
+async def resetar_permissoes_canal(canal, cargo=None):
+    try:
+        # Remover permissões específicas do cargo do modo, se existir
+        if cargo:
+            try:
+                await canal.set_permissions(cargo, overwrite=None)
+                logger.debug(f"[DELETE] Permissões do cargo {cargo.name} removidas do canal {canal.name}")
+            except Exception as e:
+                logger.warning(f"[DELETE] Não foi possível remover permissões do cargo {cargo.name}: {e}")
+
+        # Para um reset mais completo, definir permissões básicas para @everyone
+        overwrites = {
+            canal.guild.default_role: discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+                connect=True,
+                speak=True
+            )
+        }
+        
+        # Aplicar as novas permissões
+        await canal.edit(overwrites=overwrites)
+        logger.debug(f"[DELETE] Canal {canal.name} resetado para permissões padrão")
+        
+        return True
+        
+    except discord.Forbidden:
+        logger.error(f"[DELETE] Sem permissão para resetar canal {canal.name}")
+        return False
+    except discord.HTTPException as e:
+        logger.error(f"[DELETE] Erro HTTP ao resetar canal {canal.name}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"[DELETE] Erro inesperado ao resetar canal {canal.name}: {e}")
+        return False
 
 # ----------------- EVENTOS -----------------
 @bot.event
@@ -957,8 +1061,8 @@ async def on_raw_reaction_add(payload):
             if modo_id:
                 modos = carregar_modos()
                 modo_nome = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id, {}).get("nome", "Desconhecido")
-                
-                sucesso = apagar_modo(guild_id, modo_id)
+
+                sucesso = await apagar_modo_completo(guild_id, modo_id)
                 
                 if sucesso:
                     logger.info(f"[DELETE] Modo {modo_id} apagado por {user_id}")
