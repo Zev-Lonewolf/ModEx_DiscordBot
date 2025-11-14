@@ -353,3 +353,30 @@ def limpar_modos_usuario(guild_id, user_id):
     dados[guild_id_str]["modos"] = modos_guild
     MODOS_CACHE[guild_id_str] = dados[guild_id_str]
     salvar_modos(dados)
+
+def apagar_modo(guild_id, modo_id):
+    dados = carregar_modos()
+    guild_id_str = str(guild_id)
+    modo_id_str = str(modo_id)
+    
+    if guild_id_str not in dados:
+        return False
+    
+    if modo_id_str not in dados[guild_id_str].get("modos", {}):
+        return False
+    
+    # Remove o modo
+    del dados[guild_id_str]["modos"][modo_id_str]
+    
+    # Se não há mais modos, remove a estrutura do servidor
+    if not dados[guild_id_str]["modos"]:
+        del dados[guild_id_str]
+    
+    salvar_modos(dados)
+    
+    # Atualiza cache
+    if guild_id_str in MODOS_CACHE:
+        if modo_id_str in MODOS_CACHE[guild_id_str].get("modos", {}):
+            del MODOS_CACHE[guild_id_str]["modos"][modo_id_str]
+    
+    return True

@@ -91,6 +91,7 @@ def get_setup_embed(language):
                 "**Comandos Principais:**\n"
                 "> `!Criar` → *Começa a criação de um novo modo personalizado.*\n"
                 "> `!Editar` → *Abre a edição de um modo existente.*\n"
+                "> `!Apagar` → *Remove um modo existente do servidor.*\n"
                 "> `!Verificar` → *Mostra os cargos detectados e modos criados.*\n"
                 "> `!Funções` → *Lista e explica todas as funções disponíveis.*\n"
                 "> `!Sobre` → *Saiba mais sobre o ModEx e seu criador.*\n\n"
@@ -109,6 +110,7 @@ def get_setup_embed(language):
                 "**Main Commands:**\n"
                 "> `!Create` → *Starts creating a new custom mode.*\n"
                 "> `!Edit` → *Opens editing for an existing mode.*\n"
+                "> `!Delete` → *Removes an existing mode from the server.*\n"
                 "> `!Check` → *Shows detected roles and created modes.*\n"
                 "> `!Functions` → *Lists and explains all available functions.*\n"
                 "> `!About` → *Learn more about ModEx and its creator.*\n\n"
@@ -157,7 +159,8 @@ def get_functions_embed(language, guild):
             description=(
                 "Aqui está um resumo dos comandos disponíveis. O ModEx está sempre recebendo novidades, então fique de olho para futuras atualizações! ✨\n\n"
                 f"**🗃️ Servidor:** {guild.name}\n"
-                "> Criar      → Inicia a criação de um novo modo\n"
+                "> Apagar      → Remove um modo existente\n"
+                "> Criar       → Inicia a criação de um novo modo\n"
                 "> Editar      → Edita um modo existente\n"
                 "> Funções     → Exibe esta lista de comandos\n"
                 "> Help        → Mostra a ajuda nativa do Discord\n"
@@ -178,16 +181,17 @@ def get_functions_embed(language, guild):
             description=(
                 "Here’s a quick overview of the available commands. ModEx is constantly evolving, so stay tuned for new features! ✨\n\n"
                 f"**🗃️ Servidor:** {guild.name}\n"
-                "> Create       → Starts creating a new mode\n"
-                "> Edit      → Edits an existing mode\n"
-                "> Functions     → Displays this command list\n"
+                "> Delete      → Removes an existing mode\n"
+                "> Create      → Starts creating a new mode\n"
+                "> Edit        → Edits an existing mode\n"
+                "> Functions   → Displays this command list\n"
                 "> Help        → Shows Discord’s native help message\n"
-                "> Language      → Reopens the language selection\n"
-                "> Clean      → Clears bot and user messages\n"
+                "> Language    → Reopens the language selection\n"
+                "> Clean       → Clears bot and user messages\n"
                 "> Log         → Shows log status\n"
                 "> Setup       → Opens the ModEx main panel\n"
                 "> About       → Shows information about the bot\n"
-                "> Check   → Lists server roles and modes\n\n"
+                "> Check       → Lists server roles and modes\n\n"
                 "💡 Tip: Use `!help command` for more info on a specific command."
             ),
             color=discord.Color.blue()
@@ -1026,4 +1030,159 @@ def get_log_deactivated_embed(language):
         color=discord.Color.red()
     )
     embed.set_footer(text=rodape)
+    return embed
+
+def get_delete_mode_embed(language, modos_existentes):
+    if language == "pt":
+        titulo = "🗑️ **Apagar Modos Existentes**"
+        descricao = (
+            "Bem-vindo(a) à tela de exclusão de modos!\n"
+            "Para apagar um modo, digite o **nome** dele usando `#nomedomodo`.\n"
+            "Use esta função com bastante cuidado para manter o servidor sempre organizado.\n\n"
+
+            "⚠️ **Avisos rápidos:**\n"
+            "> 🔹 A exclusão é imediata — escolha com atenção.\n"
+            "> 🔹 Modos removidos desaparecem do banco de dados **para sempre**.\n"
+            "> 🔹 Revise com calma e tenha certeza absoluta antes de excluir qualquer modo.\n\n"
+        )
+        rodape = "🌙 Às vezes apagar é só abrir espaço para algo melhor — Noa"
+        nome_lista = "🧩 **Modos disponíveis:**"
+        nenhum = "> ❌ Nenhum modo encontrado."
+    else:
+        titulo = "🗑️ **Delete Existing Modes**"
+        descricao = (
+            "Welcome to the mode deletion screen!\n"
+            "To delete a mode, type its **name** using `#modename`.\n"
+            "Use this feature carefully to keep your server clean and organized.\n\n"
+
+            "⚠️ **Quick notes:**\n"
+            "> 🔹 Deletion is immediate — choose wisely.\n"
+            "> 🔹 Removed modes disappear from the database **permanently**.\n"
+            "> 🔹 Double-check everything and be absolutely sure before deleting a mode.\n\n"
+        )
+        rodape = "🌙 Sometimes deleting is just making room for something better — Noa"
+        nome_lista = "🧩 **Available modes:**"
+        nenhum = "> ❌ No modes found."
+
+    if modos_existentes:
+        lista_modos = "\n".join(
+            [f"> - **{modo.get('nome', 'Sem nome')}**" for modo in modos_existentes.values()]
+        )
+    else:
+        lista_modos = nenhum
+
+    embed = discord.Embed(
+        title=titulo,
+        description=descricao,
+        color=discord.Color.red()
+    )
+    embed.add_field(
+        name=nome_lista,
+        value=lista_modos,
+        inline=False
+    )
+    embed.set_footer(text=rodape)
+    return embed
+
+def get_delete_confirm_embed(idioma, modo_nome):
+    if idioma == "pt":
+        embed = discord.Embed(
+            title="⚠️ **Confirmar Exclusão**",
+            description=(
+                f"Você está prestes a apagar o modo **{modo_nome}**.\n\n"
+                "Depois daqui… *não existe volta*. Então respira, confere o nome e tenha certeza absoluta "
+                "de que é isso mesmo que você quer fazer."
+            ),
+            color=0xffaa00
+        )
+        embed.add_field(
+            name="O que exatamente será apagado:",
+            value=(
+                "> 🔸 Todas as configurações do modo\n"
+                "> 🔸 Cargos associados\n"
+                "> 🔸 Permissões aplicadas nos canais\n"
+                "> 🔸 Configurações de recepção, se houver"
+            ),
+            inline=False
+        )
+        embed.set_footer(
+            text="🔍 Curiosidade: a AMD lançou o primeiro processador x86 de 64 bits."
+        )
+    else:
+        embed = discord.Embed(
+            title="⚠️ **Confirm Deletion**",
+            description=(
+                f"You are about to delete the mode **{modo_nome}**.\n\n"
+                "After this point… there’s *no way back*. Take a breath, double-check everything, "
+                "and be sure this is what you want."
+            ),
+            color=0xffaa00
+        )
+        embed.add_field(
+            name="What will be permanently removed:",
+            value=(
+                "> 🔸 All mode configurations\n"
+                "> 🔸 Linked roles\n"
+                "> 🔸 Channel permissions\n"
+                "> 🔸 Reception settings, if present"
+            ),
+            inline=False
+        )
+        embed.set_footer(
+            text="🔍 Fun fact: AMD made the first 64-bit x86 CPU."
+        )
+    return embed
+
+def get_delete_success_embed(idioma, modo_nome):
+    if idioma == "pt":
+        embed = discord.Embed(
+            title="✅ **Modo Apagado com Sucesso**",
+            description=(
+                f"O modo **{modo_nome}** foi removido sem problemas.\n"
+                "Você já pode voltar para a tela inicial e seguir adiante!"
+            ),
+            color=0x00ff00
+        )
+        embed.set_footer(
+            text="🎮 Curiosidade: já teve fã invadindo o TGA no meio do palco."
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ **Mode Successfully Deleted**",
+            description=(
+                f"The mode **{modo_nome}** was removed without issues.\n"
+                "You can return to the main screen and move on!"
+            ),
+            color=0x00ff00
+        )
+        embed.set_footer(
+            text="🎮 Fun fact: a fan once rushed the TGA stage mid-show."
+        )
+    return embed
+
+def get_delete_error_embed(idioma, modo_nome):
+    if idioma == "pt":
+        embed = discord.Embed(
+            title="❌ **Erro ao Apagar**",
+            description=(
+                f"Não foi possível remover o modo **{modo_nome}**.\n"
+                "Algo escapou do controle por aqui. Dá uma revisada e tenta novamente!"
+            ),
+            color=0xff4444
+        )
+        embed.set_footer(
+            text="💻 Curiosidade: o primeiro mouse de computador era feito de madeira."
+        )
+    else:
+        embed = discord.Embed(
+            title="❌ **Delete Error**",
+            description=(
+                f"Could not delete the mode **{modo_nome}**.\n"
+                "Something slipped out of control. Check things and try again!"
+            ),
+            color=0xff4444
+        )
+        embed.set_footer(
+            text="💻 Fun fact: the first computer mouse was made of wood."
+        )
     return embed
