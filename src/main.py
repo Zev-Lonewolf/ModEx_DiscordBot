@@ -21,7 +21,8 @@ from utils.modos import (
     limpar_modos_incompletos,
     limpar_modos_usuario,
     finalizar_modos_em_edicao,
-    apagar_modo
+    apagar_modo,
+    aplicar_modo_servidor
 )
 from embed import (
     get_language_embed,
@@ -58,7 +59,11 @@ from embed import (
     get_delete_mode_embed,
     get_delete_confirm_embed,
     get_delete_success_embed,
-    get_delete_error_embed
+    get_delete_error_embed,
+    get_switch_mode_list_embed,
+    get_switch_success_embed,
+    get_switch_error_embed,
+    get_switch_not_found_embed
 )
 
 def resetar_estado_usuario(guild_id, user_id):
@@ -259,6 +264,25 @@ flow = {
     "get_delete_error_embed": {
         "back": "get_delete_mode_embed", 
         "next": None
+    },
+    "get_switch_mode_list_embed": {
+        "back": "get_setup_embed",
+        "next": [
+            "get_switch_success_embed",
+            "get_switch_error_embed"
+        ]
+    },
+    "get_switch_success_embed": {
+        "next": None,
+        "back": "get_setup_embed"
+    },
+    "get_switch_error_embed": {
+        "next": None,
+        "back": "get_setup_embed"
+    },
+    "get_switch_not_found_embed": {
+        "next": None,
+        "back": "get_switch_mode_list_embed"
     }
 }
 
@@ -298,7 +322,11 @@ estado_to_embed = {
     "apagando_modo": "get_delete_mode_embed",
     "confirmando_exclusao": "get_delete_confirm_embed", 
     "exclusao_sucesso": "get_delete_success_embed",
-    "exclusao_erro": "get_delete_error_embed"
+    "exclusao_erro": "get_delete_error_embed",
+    "selecionando_modo_trocar": "get_switch_mode_list_embed",
+    "troca_sucesso": "get_switch_success_embed", 
+    "troca_erro": "get_switch_error_embed",
+    "troca_nao_encontrado": "get_switch_not_found_embed",
 }
 
 embed_to_estado = {v: k for k, v in estado_to_embed.items()}
@@ -339,7 +367,11 @@ EMBEDS = {
     "get_delete_mode_embed": get_delete_mode_embed,
     "get_delete_confirm_embed": get_delete_confirm_embed,
     "get_delete_success_embed": get_delete_success_embed,
-    "get_delete_error_embed": get_delete_error_embed
+    "get_delete_error_embed": get_delete_error_embed,
+    "get_switch_mode_list_embed": get_switch_mode_list_embed,
+    "get_switch_success_embed": get_switch_success_embed,
+    "get_switch_error_embed": get_switch_error_embed,
+    "get_switch_not_found_embed": get_switch_not_found_embed,
 }
 
 # ----------------- FUNÇÕES AUXILIARES -----------------
@@ -408,6 +440,7 @@ async def enviar_embed(canal, user_id, embed):
     except Exception as e:
         logger.debug(f"[EMBED] Erro ao enviar embed para user={user_id}, canal={canal}: {e}")
 
+# ---------- FUNÇÃO DE AVANÇAR ----------
 async def go_next(canal, user_id, guild_id, resultado=None):
     logger.debug(f"[FLOW] go_next iniciado | user={user_id}, guild={guild_id}, resultado={resultado}")
     logger.debug(f"[FLOW] Estado atual: {user_progress.get(guild_id, {}).get(user_id)}")
@@ -498,7 +531,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
             embed = embed_func(idioma, roles)
         elif next_embed_name == "get_channel_select_embed":
             channels = canal.guild.channels
-            embed = embed_func(idioma, channels)
+            embed = embed_func(idioma)
         elif next_embed_name == "get_delete_mode_embed":
             # CORREÇÃO: Adicionar parâmetro modos_existentes
             modos = carregar_modos().get(str(guild_id), {}).get("modos", {})
@@ -542,9 +575,10 @@ async def go_next(canal, user_id, guild_id, resultado=None):
     
     elif next_embed_name == "get_reception_mode_question_embed":
         try:
+            await msg.add_reaction("🔙")
             await msg.add_reaction("✅")
             await msg.add_reaction("❌")
-            logger.debug(f"[FLOW] Reações ✅❌ adicionadas para recepção")
+            logger.debug(f"[FLOW] Reações 🔙✅❌ adicionadas para recepção")
         except Exception as e:
             logger.warning(f"[FLOW] Não foi possível adicionar reações de recepção: {e}")
     else:
@@ -609,7 +643,7 @@ async def finalizar_modo_fluxo(canal, user_id, guild_id, idioma):
         # Adicionar reação de voltar para o embed final
         await msg.add_reaction("🔙")
         
-        user_progress.setdefault(guild_id, {})[user_id] = "finished"
+        user_progress.setdefault(guild_id, {})[user_id] = "get_finish_mode_embed"
         criando_modo[user_id] = None
         logger.debug(f"[FLOW] Estado final resetado para user={user_id}")
     except Exception as e:
@@ -654,7 +688,7 @@ async def go_back(canal, user_id, guild_id):
             embed = embed_func(idioma, roles)
         elif back_embed == "get_channel_select_embed":
             channels = canal.guild.channels
-            embed = embed_func(idioma, channels)
+            embed = embed_func(idioma)
         elif back_embed == "get_create_embed":
             embed = embed_func(canal.guild) if hasattr(embed_func, '__code__') and embed_func.__code__.co_argcount > 1 else embed_func(idioma)
         elif back_embed == "get_roles_embed":
@@ -1041,7 +1075,13 @@ async def on_raw_reaction_add(payload):
         
         await go_back(canal, user_id, guild_id)
         return
-    
+
+    # -------------------- TROCA DE MODO - FLOW SIMPLES --------------------
+    if payload.emoji.name == "🔙" and current in ["get_switch_success_embed", "get_switch_error_embed", "get_switch_not_found_embed"]:
+        logger.debug(f"[FLOW] Reação 🔙 detectada para {current} - seguindo flow")
+        await go_back(canal, user_id, guild_id)
+        return
+
     # -------------------- AVANÇAR --------------------
     elif payload.emoji.name == "✅":
         logger.debug(f"[NAVEGAÇÃO] Reação de AVANÇAR detectada | user={user_id} | current={current}")
@@ -1560,6 +1600,50 @@ async def on_message(message):
     current = user_progress.get(guild_id, {}).get(user_id)
     logger.debug(f"[DEBUG] on_message - User: {user_id}, Current: {current}, Content: {message.content}, Estado: {criando_modo.get(user_id)}")
     logger.debug(f"Mensagem recebida de {message.author} (ID: {user_id}) no servidor {guild_id or 'DM'} | Estado atual: {estado}, Current: {current}")
+
+    # --- VERIFICAÇÃO PRIORITÁRIA: TROCAR MODO ---
+    # Esta verificação deve vir ANTES das outras para evitar conflitos
+    current = user_progress.get(guild_id, {}).get(user_id)
+    if current == "get_switch_mode_list_embed" and message.content.startswith("#"):
+        nome_modo = message.content[1:].strip()
+        modo_id = modo_existe(guild_id, nome_modo)
+        
+        logger.debug(f"[TROCAR] Usuário {user_id} selecionou modo '{nome_modo}' para troca")
+
+        if not modo_id:
+            logger.warning(f"[TROCAR] Modo '{nome_modo}' não encontrado")
+            embed = get_switch_not_found_embed(idioma, nome_modo)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            await msg.add_reaction("🔙")
+            # Define o estado para a tela de "modo não encontrado"
+            if guild_id not in user_progress:
+                user_progress[guild_id] = {}
+            user_progress[guild_id][user_id] = "get_switch_not_found_embed"
+            return
+
+        # Aplica o modo a todos os membros
+        sucesso, resultado = await aplicar_modo_servidor(message.guild, modo_id, idioma, bot)
+        
+        if sucesso:
+            embed = get_switch_success_embed(idioma, nome_modo)
+            # Define o estado para a tela de sucesso
+            estado_resultado = "get_switch_success_embed"
+        else:
+            logger.error(f"[TROCAR] Falha ao aplicar modo {nome_modo}: {resultado}")
+            embed = get_switch_error_embed(idioma, nome_modo)
+            # Define o estado para a tela de erro
+            estado_resultado = "get_switch_error_embed"
+
+        await limpar_mensagens(message.channel, bot.user, message.author)
+        msg = await message.channel.send(embed=embed)
+        await msg.add_reaction("🔙")
+        
+        # Define o estado apropriado baseado no resultado
+        if guild_id not in user_progress:
+            user_progress[guild_id] = {}
+        user_progress[guild_id][user_id] = estado_resultado
+        return
 
     # --- NOVA VERIFICAÇÃO: Ignorar mensagens com # no get_mode_selected_embed ---
     if current == "get_mode_selected_embed" and message.content.startswith("#"):
@@ -2240,5 +2324,33 @@ async def apagar(ctx):
     
     logger.debug(f"[APAGAR] Fluxo de deleção iniciado para {ctx.author.id}")
 
+@bot.command(name="trocar", aliases=["Trocar", "TROCAR", "switch", "Switch", "SWITCH"])
+async def trocar(ctx):
+    logger.debug(f"[CMD] trocar chamado por {ctx.author} ({ctx.author.id}) no servidor {ctx.guild.name} ({ctx.guild.id})")
+    await ctx.message.delete()
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
+
+    user_id = ctx.author.id
+    guild_id = ctx.guild.id
+    idioma = obter_idioma(guild_id)
+    resetar_estado_usuario(guild_id, user_id)
+    
+    modos = carregar_modos().get(str(guild_id), {}).get("modos", {})
+    modos_existentes = []
+    for modo_id, modo_data in modos.items():
+        if modo_data.get("finalizado") and modo_data.get("roles"):
+            modos_existentes.append(modo_data["nome"])
+    
+    logger.debug(f"[TROCAR] Modos finalizados encontrados: {modos_existentes}")
+    embed = get_switch_mode_list_embed(idioma, modos_existentes)
+    msg = await ctx.channel.send(embed=embed)
+    user_progress.setdefault(guild_id, {})[user_id] = "get_switch_mode_list_embed"
+    criando_modo[user_id] = "selecionando_modo_trocar"
+    await msg.add_reaction("🔙")
+    
+    logger.debug(f"[TROCAR] Lista de modos enviada para {user_id} | Modos: {modos_existentes}")
 # ----------------- RODA O BOT -----------------
 bot.run(TOKEN)

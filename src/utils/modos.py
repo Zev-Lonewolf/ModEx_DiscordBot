@@ -378,5 +378,144 @@ def apagar_modo(guild_id, modo_id):
     if guild_id_str in MODOS_CACHE:
         if modo_id_str in MODOS_CACHE[guild_id_str].get("modos", {}):
             del MODOS_CACHE[guild_id_str]["modos"][modo_id_str]
-    
     return True
+
+async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
+    try:
+        logger.info(f"[TROCAR] Aplicando modo {modo_id} no servidor {guild.name}")
+        
+        # Carrega os modos
+        modos = carregar_modos()
+        guild_id_str = str(guild.id)
+        
+        if guild_id_str not in modos or modo_id not in modos[guild_id_str]["modos"]:
+            logger.error(f"[TROCAR] Modo {modo_id} não encontrado no servidor {guild.name}")
+            return False, "Modo não encontrado"
+        
+        modo_atual = modos[guild_id_str]["modos"][modo_id]
+        modo_nome = modo_atual.get("nome", "Desconhecido")
+        
+        if not modo_atual.get("roles"):
+            logger.error(f"[TROCAR] Modo {modo_nome} não tem cargos definidos")
+            return False, "Modo não tem cargos definidos"
+        
+        # Pega o novo cargo
+        novo_cargo_id = int(modo_atual["roles"][0])
+        novo_cargo = guild.get_role(novo_cargo_id)
+        
+        if not novo_cargo:
+            logger.error(f"[TROCAR] Cargo {novo_cargo_id} não encontrado no servidor")
+            return False, "Cargo não encontrado no servidor"
+        
+        # Pega a posição do bot na hierarquia
+        if bot_instance is None:
+            from main import bot
+            bot_instance = bot
+        
+        bot_member = guild.get_member(bot_instance.user.id)
+        if not bot_member:
+            logger.error(f"[TROCAR] Bot não encontrado no servidor")
+            return False, "Bot não encontrado no servidor"
+        
+        bot_top_role = bot_member.top_role
+        
+        # ESTRATÉGIA RADICAL: Remove TODOS os cargos abaixo do bot (exceto @everyone e o novo cargo)
+        cargos_para_remover = []
+        
+        for cargo in guild.roles:
+            if (not cargo.is_default() and 
+                cargo != novo_cargo and 
+                cargo.position < bot_top_role.position):
+                cargos_para_remover.append(cargo)
+        
+        # Processa todos os membros do servidor
+        membros_processados = 0
+        membros_modificados = 0
+        erros = []
+        
+        for member in guild.members:
+            if member.bot:
+                continue
+                
+            try:
+                membro_modificado = False
+                
+                # Remove TODOS os cargos abaixo do bot (exceto o novo)
+                for cargo_para_remover in cargos_para_remover:
+                    if cargo_para_remover in member.roles:
+                        await member.remove_roles(cargo_para_remover)
+                        membro_modificado = True
+                
+                # Adiciona o novo cargo (sempre, mesmo que já tenha)
+                if novo_cargo not in member.roles:
+                    await member.add_roles(novo_cargo)
+                    membro_modificado = True
+                
+                membros_processados += 1
+                if membro_modificado:
+                    membros_modificados += 1
+                    
+            except discord.Forbidden:
+                erro_msg = f"Sem permissão para gerenciar cargos de {member.display_name}"
+                erros.append(erro_msg)
+            except discord.HTTPException as e:
+                erro_msg = f"Erro HTTP com {member.display_name}: {e}"
+                erros.append(erro_msg)
+            except Exception as e:
+                erro_msg = f"Erro inesperado com {member.display_name}: {e}"
+                erros.append(erro_msg)
+        
+        # Log principal simplificado
+        logger.info(f"[TROCAR] O modo '{modo_nome}' foi aplicado para {membros_modificados} membros, com {len(cargos_para_remover)} cargos removidos e com {len(erros)} erros")
+        
+        # Atualiza as permissões dos canais
+        canais_atualizados = 0
+        if modo_atual.get("channels"):
+            for canal_data in modo_atual["channels"]:
+                try:
+                    canal_id = int(canal_data.id) if hasattr(canal_data, "id") else int(canal_data)
+                    canal = guild.get_channel(canal_id)
+                    
+                    if canal:
+                        # Remove permissões de TODOS os cargos abaixo do bot
+                        for cargo_para_remover in cargos_para_remover:
+                            try:
+                                await canal.set_permissions(cargo_para_remover, overwrite=None)
+                            except Exception:
+                                pass
+                        
+                        # Aplica permissões do novo cargo
+                        if novo_cargo.position < bot_top_role.position:
+                            sucesso = await atualizar_permissoes_canal(
+                                canal, 
+                                novo_cargo,
+                                bot_instance,
+                                overwrite=True,
+                                modo_id=modo_id,
+                                guild_id=guild.id,
+                                user_id=None,
+                                criando_modo_dict={}
+                            )
+                            if sucesso:
+                                canais_atualizados += 1
+                                
+                except Exception:
+                    pass
+        
+        # Define este modo como o modo ativo (recepção)
+        for mid, modo_data in modos[guild_id_str]["modos"].items():
+            modo_data["recepcao"] = (mid == modo_id)
+        
+        salvar_modos(modos)
+        
+        # Mensagem de resultado SIMPLIFICADA para o usuário
+        resultado = f"✅ **Modo '{modo_nome}' aplicado com sucesso!**"
+        
+        if erros:
+            resultado += f"\n⚠️ Ocorreram {len(erros)} erros (verifique logs)"
+        
+        return True, resultado
+        
+    except Exception as e:
+        logger.error(f"[TROCAR] Erro crítico ao aplicar modo {modo_id}: {e}", exc_info=True)
+        return False, f"❌ Erro crítico: {str(e)}"

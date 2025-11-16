@@ -89,6 +89,7 @@ def get_setup_embed(language):
                 "Aqui você pode **criar, editar e organizar seus modos personalizados** com praticidade. "
                 "Quer se aprofundar mais? Dê uma olhada nas funções disponíveis ou explore o bot através de seu repositório no GitHub!\n\n"
                 "**Comandos Principais:**\n"
+                "> `!Trocar` → *Alterna o modo do servidor para todos os membros.*\n"
                 "> `!Criar` → *Começa a criação de um novo modo personalizado.*\n"
                 "> `!Editar` → *Abre a edição de um modo existente.*\n"
                 "> `!Apagar` → *Remove um modo existente do servidor.*\n"
@@ -108,6 +109,7 @@ def get_setup_embed(language):
                 "Here you can **create, edit, and organize your custom modes** with ease. "
                 "Want to dig deeper? Take a look at the available functions or explore the bot through its GitHub repository!\n\n"
                 "**Main Commands:**\n"
+                "> `!Switch` → *Switches the server mode for all members.*\n"
                 "> `!Create` → *Starts creating a new custom mode.*\n"
                 "> `!Edit` → *Opens editing for an existing mode.*\n"
                 "> `!Delete` → *Removes an existing mode from the server.*\n"
@@ -159,6 +161,7 @@ def get_functions_embed(language, guild):
             description=(
                 "Aqui está um resumo dos comandos disponíveis. O ModEx está sempre recebendo novidades, então fique de olho para futuras atualizações! ✨\n\n"
                 f"**🗃️ Servidor:** {guild.name}\n"
+                "> Trocar      → Alterna o modo do servidor para todos os membros\n"
                 "> Apagar      → Remove um modo existente\n"
                 "> Criar       → Inicia a criação de um novo modo\n"
                 "> Editar      → Edita um modo existente\n"
@@ -181,6 +184,7 @@ def get_functions_embed(language, guild):
             description=(
                 "Here’s a quick overview of the available commands. ModEx is constantly evolving, so stay tuned for new features! ✨\n\n"
                 f"**🗃️ Servidor:** {guild.name}\n"
+                "> Switch      → Switches the server mode for all members\n"
                 "> Delete      → Removes an existing mode\n"
                 "> Create      → Starts creating a new mode\n"
                 "> Edit        → Edits an existing mode\n"
@@ -548,18 +552,16 @@ def get_role_select_embed(language, roles):
     if language == "pt":
         titulo = "**🚧 Criação de Modo (etapa 2 de 5)**"
         descricao = (
-            "📌 Mencione **um ou mais cargos** ou digite o nome exato deles. "
+            "📌 Mencione **um ou mais cargos** escrevendo por Ex: `@Staff`, `@Vips`, `@Adms`..."
             "Esses serão os cargos atribuídos ao modo.\n"
-            "Ex: `@Staff`, `@Vips`, `@Adms`..."
         )
         rodape = "💡 Curiosidade: o primeiro sistema de permissões em computadores surgiu nos anos 60!"
         cargos_texto = "\n".join([f"- **{role.name}**" for role in filtered_roles]) if filtered_roles else "> ❌ Nenhum cargo encontrado. Crie um cargo para continuar."
     else:
         titulo = "**🚧 Mode Creation (step 2 of 5)**"
         descricao = (
-            "📌 Mention **one or more roles** or type their exact names. "
+            "📌 Mention **one or more roles** by writing, for example: `@Staff`, `@Vips`, `@Adms`..."
             "These will be the roles assigned to the mode.\n"
-            "Ex: `@Staff`, `@Vips`, `@Admins`..."
         )
         rodape = "💡 Fun fact: the first computer permissions system appeared in the 1960s!"
         cargos_texto = "\n".join([f"- **{role.name}**" for role in filtered_roles]) if filtered_roles else "> ❌ No roles found. Create a role to continue."
@@ -661,14 +663,14 @@ def get_invalid_channel_embed(language):
     if language == "pt":
         embed = discord.Embed(
             title="❌ Canal/Categoria inválido",
-            description="⚠️ Canal ou categoria não encontrado(a). Mencione corretamente ou digite o nome exato.",
+            description="⚠️ Canal ou categoria não encontrado(a). Mencione corretamente o nome exato.",
             color=discord.Color.red()
         )
         embed.set_footer(text="💡 Curiosidade: o primeiro servidor de chat online foi criado em 1973!")
     else:
         embed = discord.Embed(
             title="❌ Invalid Channel/Category",
-            description="⚠️ Channel or category not found. Mention it correctly or type the exact name.",
+            description="⚠️ Channel or category not found. Please state the exact name correctly.",
             color=discord.Color.red()
         )
         embed.set_footer(text="💡 Fun fact: the first online chat server was created in 1973!")
@@ -1093,7 +1095,7 @@ def get_delete_confirm_embed(idioma, modo_nome):
                 "Depois daqui… *não existe volta*. Então respira, confere o nome e tenha certeza absoluta "
                 "de que é isso mesmo que você quer fazer."
             ),
-            color=0xffaa00
+            color=discord.Color.from_rgb(255, 170, 0)
         )
         embed.add_field(
             name="O que exatamente será apagado:",
@@ -1105,9 +1107,7 @@ def get_delete_confirm_embed(idioma, modo_nome):
             ),
             inline=False
         )
-        embed.set_footer(
-            text="🔍 Curiosidade: a AMD lançou o primeiro processador x86 de 64 bits."
-        )
+        embed.set_footer(text="🔍 Curiosidade: a AMD lançou o primeiro processador x86 de 64 bits.")
     else:
         embed = discord.Embed(
             title="⚠️ **Confirm Deletion**",
@@ -1116,7 +1116,7 @@ def get_delete_confirm_embed(idioma, modo_nome):
                 "After this point… there’s *no way back*. Take a breath, double-check everything, "
                 "and be sure this is what you want."
             ),
-            color=0xffaa00
+            color=discord.Color.from_rgb(255, 170, 0)
         )
         embed.add_field(
             name="What will be permanently removed:",
@@ -1128,9 +1128,7 @@ def get_delete_confirm_embed(idioma, modo_nome):
             ),
             inline=False
         )
-        embed.set_footer(
-            text="🔍 Fun fact: AMD made the first 64-bit x86 CPU."
-        )
+        embed.set_footer(text="🔍 Fun fact: AMD made the first 64-bit x86 CPU.")
     return embed
 
 def get_delete_success_embed(idioma, modo_nome):
@@ -1141,7 +1139,7 @@ def get_delete_success_embed(idioma, modo_nome):
                 f"O modo **{modo_nome}** foi removido sem problemas.\n"
                 "Você já pode voltar para a tela inicial e seguir adiante!"
             ),
-            color=0x00ff00
+            color=discord.Color.from_rgb(0, 255, 0)
         )
         embed.set_footer(
             text="🎮 Curiosidade: já teve fã invadindo o TGA no meio do palco."
@@ -1153,7 +1151,7 @@ def get_delete_success_embed(idioma, modo_nome):
                 f"The mode **{modo_nome}** was removed without issues.\n"
                 "You can return to the main screen and move on!"
             ),
-            color=0x00ff00
+            color=discord.Color.from_rgb(0, 255, 0)
         )
         embed.set_footer(
             text="🎮 Fun fact: a fan once rushed the TGA stage mid-show."
@@ -1168,7 +1166,7 @@ def get_delete_error_embed(idioma, modo_nome):
                 f"Não foi possível remover o modo **{modo_nome}**.\n"
                 "Algo escapou do controle por aqui. Dá uma revisada e tenta novamente!"
             ),
-            color=0xff4444
+            color=discord.Color.from_rgb(255, 68, 68)
         )
         embed.set_footer(
             text="💻 Curiosidade: o primeiro mouse de computador era feito de madeira."
@@ -1180,9 +1178,135 @@ def get_delete_error_embed(idioma, modo_nome):
                 f"Could not delete the mode **{modo_nome}**.\n"
                 "Something slipped out of control. Check things and try again!"
             ),
-            color=0xff4444
+            color=discord.Color.from_rgb(255, 68, 68)
         )
         embed.set_footer(
             text="💻 Fun fact: the first computer mouse was made of wood."
+        )
+    return embed
+
+def get_switch_mode_list_embed(idioma, modos_existentes):
+    if idioma == "pt":
+        embed = discord.Embed(
+            title="🔄 **Trocar de Modo**",
+            description=(
+                "Aqui estão todos os modos disponíveis para troca.\n"
+                "Para selecionar um modo, digite o nome usando `#nomedomodo`.\n\n"
+                "Escolha com calma — todos do servidor receberão os cargos do modo selecionado."
+            ),
+            color=discord.Color.blurple()
+        )
+        if modos_existentes:
+            lista = "\n".join(f"> • **{modo}**" for modo in modos_existentes)
+        else:
+            lista = "> ❌ Nenhum modo encontrado."
+        embed.add_field(
+            name="🧩 **Modos disponíveis:**",
+            value=lista,
+            inline=False
+        )
+        embed.set_footer(text="🧠 Curiosidade: o primeiro HD comercial tinha 5 MB e pesava mais de 100 kg.")
+    else:
+        embed = discord.Embed(
+            title="🔄 **Switch Mode**",
+            description=(
+                "Here are all available modes for switching.\n"
+                "To select one, type its name using `#modename`.\n\n"
+                "Choose carefully — everyone in the server will receive its roles."
+            ),
+            color=discord.Color.blurple()
+        )
+        if modos_existentes:
+            lista = "\n".join(f"> • **{modo}**" for modo in modos_existentes)
+        else:
+            lista = "> ❌ No modes found."
+        embed.add_field(
+            name="🧩 **Available modes:**",
+            value=lista,
+            inline=False
+        )
+        embed.set_footer(text="🧠 Fun fact: the first commercial HDD had 5 MB and weighed over 100 kg.")
+    return embed
+
+def get_switch_success_embed(idioma, modo_nome):
+    if idioma == "pt":
+        embed = discord.Embed(
+            title="✅ **Modo Trocado com Sucesso**",
+            description=(
+                f"O modo **{modo_nome}** foi aplicado em todos os membros.\n"
+                "Tudo certo! Você já pode seguir adiante."
+            ),
+            color=discord.Color.green()
+        )
+        embed.set_footer(
+            text="⚙️ Curiosidade: processadores modernos fazem bilhões de operações por segundo sem esforço."
+        )
+    else:
+        embed = discord.Embed(
+            title="✅ **Mode Switched Successfully**",
+            description=(
+                f"The mode **{modo_nome}** has been applied to all members.\n"
+                "All good! You may proceed."
+            ),
+            color=discord.Color.green()
+        )
+        embed.set_footer(
+            text="⚙️ Fun fact: modern CPUs perform billions of operations per second with ease."
+        )
+    return embed
+
+def get_switch_error_embed(idioma, modo_nome):
+    if idioma == "pt":
+        embed = discord.Embed(
+            title="❌ **Erro ao Trocar o Modo**",
+            description=(
+                f"Não foi possível aplicar o modo **{modo_nome}**.\n"
+                "Algo saiu do esperado — revise as configurações e tente novamente!"
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(
+            text="💻 Curiosidade: a primeira webcam da história ficava apontada para uma cafeteira."
+        )
+    else:
+        embed = discord.Embed(
+            title="❌ **Mode Switch Error**",
+            description=(
+                f"Couldn't apply the mode **{modo_nome}**.\n"
+                "Something went wrong — check your setup and try again!"
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_footer(
+            text="💻 Fun fact: the first webcam ever made watched a coffee pot."
+        )
+    return embed
+
+def get_switch_not_found_embed(language, modo_nome):
+    if language == "pt":
+        embed = discord.Embed(
+            title="🤔 **Modo Não Encontrado**",
+            description=(
+                f"Você tentou trocar para **{modo_nome}**, mas…\n"
+                "eu procurei, procurei… e *não existe nenhum modo com esse nome* no servidor.\n\n"
+                "Confere se escreveu certinho, beleza?"
+            ),
+            color=0xffcc00
+        )
+        embed.set_footer(
+            text="💡 Curiosidade: a primeira versão do Android se chamava Astro Boy — mas nunca foi lançada."
+        )
+    else:
+        embed = discord.Embed(
+            title="🤔 **Mode Not Found**",
+            description=(
+                f"You tried switching to **{modo_nome}**, but…\n"
+                "I looked everywhere and *there’s no mode with that name* on this server.\n\n"
+                "Double-check the spelling, alright?"
+            ),
+            color=0xffcc00
+        )
+        embed.set_footer(
+            text="💡 Fun fact: the first Android version was named Astro Boy — but it never released."
         )
     return embed
