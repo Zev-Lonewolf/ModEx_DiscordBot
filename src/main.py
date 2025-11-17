@@ -418,25 +418,48 @@ def pop_embed(user_id):
     logger.debug(f"[EMBED] pop_embed vazio | user_id={user_id}")
     return None, ()
 
-async def limpar_mensagens(canal, quantidade=50):
+async def limpar_mensagens(canal, autor1, autor2, quantidade=50):
     def check(msg):
-        return not msg.pinned  # Não deleta mensagens fixadas
-
+        return msg.author in [autor1, autor2]
+    
     mensagens_deletadas = 0
     try:
         deleted = await canal.purge(limit=quantidade, check=check)
         mensagens_deletadas = len(deleted)
-        logger.debug(f"[MSG] {mensagens_deletadas} mensagens limpas via purge | canal={canal}")
+        logger.debug(f"[MSG] {mensagens_deletadas} mensagens do bot/user limpas | canal={canal}")
+        return mensagens_deletadas
+    except Exception as e:
+        logger.debug(f"[MSG] Falha no purge ({e}) — usando fallback para deletar manualmente.")
+        mensagens_deletadas = 0
+        async for m in canal.history(limit=50):
+            if m.author in [autor1, autor2]:
+                try:
+                    await m.delete()
+                    mensagens_deletadas += 1
+                    logger.debug(f"[MSG] Mensagem manualmente deletada | autor={m.author}")
+                except Exception as e:
+                    logger.debug(f"[MSG] Falha ao deletar mensagem manualmente: {e}")
+        return mensagens_deletadas
+
+async def limpar_mensagem_user(canal, quantidade=50):
+    def check(msg):
+        return not msg.pinned  # Não deleta mensagens fixadas
+    
+    mensagens_deletadas = 0
+    try:
+        deleted = await canal.purge(limit=quantidade, check=check)
+        mensagens_deletadas = len(deleted)
+        logger.debug(f"[MSG] {mensagens_deletadas} mensagens gerais limpas | canal={canal}")
         return mensagens_deletadas
     except Exception as e:
         logger.debug(f"[MSG] Falha no purge ({e}) — usando fallback para deletar manualmente.")
         mensagens_deletadas = 0
         async for m in canal.history(limit=quantidade):
-            if not m.pinned:  # Não deleta mensagens fixadas
+            if not m.pinned:
                 try:
                     await m.delete()
                     mensagens_deletadas += 1
-                    logger.debug(f"[MSG] Mensagem manualmente deletada")
+                    logger.debug(f"[MSG] Mensagem geral manualmente deletada")
                 except Exception as e:
                     logger.debug(f"[MSG] Falha ao deletar mensagem manualmente: {e}")
         return mensagens_deletadas
@@ -2350,7 +2373,7 @@ async def apagar(ctx, quantidade: int = 50):
     except:
         pass
 
-    quantidade_deletada = await limpar_mensagens(ctx.channel, quantidade)
+    quantidade_deletada = await limpar_mensagem_user(ctx.channel, quantidade)
     idioma = obter_idioma(ctx.guild.id)
     embed = get_clean_embed(idioma, quantidade_deletada, ctx.author)
     await ctx.send(embed=embed)
