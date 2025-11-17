@@ -1690,6 +1690,125 @@ async def on_message(message):
         user_progress[guild_id][user_id] = estado_resultado
         return
 
+    # --- VERIFICAÇÃO PRIORITÁRIA: ETAPA DE SELEÇÃO DE CANAL ---
+    if estado == "selecionando_canal":
+        logger.debug(f"[CANAL] Processando seleção de canal para user={user_id}")
+        
+        # Se a mensagem começa com #, tratar como tentativa de nome de canal
+        if message.content.startswith("#"):
+            nome_canal = message.content[1:].strip()
+            logger.debug(f"[CANAL] Tentativa de nome de canal com #: '{nome_canal}'")
+            
+            # Buscar canal por nome (sem o #)
+            canal_encontrado = None
+            for ch in message.guild.text_channels + message.guild.voice_channels + message.guild.categories:
+                if ch.name.lower() == nome_canal.lower():
+                    canal_encontrado = ch
+                    break
+            
+            if canal_encontrado:
+                logger.debug(f"[CANAL] Canal encontrado por nome: {canal_encontrado.name}")
+                channels = [canal_encontrado]
+            else:
+                logger.debug(f"[CANAL] Nenhum canal válido encontrado para '{nome_canal}'.")
+                embed = get_invalid_channel_embed(idioma)
+                await limpar_mensagens(message.channel, bot.user, message.author)
+                msg = await message.channel.send(embed=embed)
+                user_progress[guild_id][user_id] = "get_invalid_channel_embed"
+                await msg.add_reaction("🔙")
+                mensagem_voltar_ids[str(guild_id)] = msg.id
+                criando_modo[user_id] = "canal_invalido"
+                
+                # Garantir que volte para seleção de canal
+                push_embed(user_id, "get_channel_select_embed")
+                return
+        else:
+            # Processar menções de canal ou outros formatos
+            channels = list(message.channel_mentions)
+            content_lower = message.content.lower()
+
+            # Buscar canais por nome (para mensagens sem #)
+            for ch in message.guild.text_channels + message.guild.voice_channels + message.guild.categories:
+                if ch.name.lower() == content_lower:
+                    channels.append(ch)
+                    logger.debug(f"[CANAL] Canal encontrado por nome: {ch.name}")
+
+            if not channels:
+                logger.debug(f"[CANAL] Nenhum canal válido encontrado para '{message.content}'.")
+                embed = get_invalid_channel_embed(idioma)
+                await limpar_mensagens(message.channel, bot.user, message.author)
+                msg = await message.channel.send(embed=embed)
+                user_progress[guild_id][user_id] = "get_invalid_channel_embed"
+                await msg.add_reaction("🔙")
+                mensagem_voltar_ids[str(guild_id)] = msg.id
+                criando_modo[user_id] = "canal_invalido"
+                
+                # Garantir que volte para seleção de canal
+                push_embed(user_id, "get_channel_select_embed")
+                return
+
+        # Validação de canais removidos
+        canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
+        if canais_removidos:
+            logger.debug(f"[VALIDATION] Canais removidos detectados: {canais_removidos}")
+        
+            embed = get_channel_removed_warning_embed(idioma, canais_removidos)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            user_progress[guild_id][user_id] = "get_channel_removed_warning_embed"
+            await msg.add_reaction("🔙")
+            mensagem_voltar_ids[str(guild_id)] = msg.id
+            criando_modo[user_id] = "erro_canal"
+            
+            # Garantir que volte para seleção de canal
+            push_embed(user_id, "get_channel_select_embed")
+            return
+
+        # Validação de conflito
+        canais_conflito = []
+        if not em_edicao.get(user_id, False):
+            canais_usados = []
+            modos_existentes = carregar_modos().get(str(guild_id), {}).get("modos", {})
+            for mid, m in modos_existentes.items():
+                if m.get("channels"):
+                    canais_usados.extend([str(ch) for ch in m["channels"]])
+            canais_conflito = [str(ch.id) for ch in channels if str(ch.id) in canais_usados]
+
+        if canais_conflito:
+            logger.debug(f"[VALIDATION] Conflito de canais detectado: {canais_conflito}")
+            embed = get_channel_conflict_warning_embed(idioma, canais_conflito)
+            await limpar_mensagens(message.channel, bot.user, message.author)
+            msg = await message.channel.send(embed=embed)
+            user_progress[guild_id][user_id] = "get_channel_conflict_warning_embed"
+            await msg.add_reaction("🔙")
+            mensagem_voltar_ids[str(guild_id)] = msg.id
+            criando_modo[user_id] = "erro_canal"
+            
+            # Garantir que volte para seleção de canal
+            push_embed(user_id, "get_channel_select_embed")
+            return
+
+        # Se chegou aqui, canais são válidos
+        salvar_channels_modo(guild_id, modo_ids[user_id], channels)
+        modos = carregar_modos()
+        MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_ids[user_id]] = modos[str(guild_id)]["modos"][modo_ids[user_id]]
+        salvar_modos(modos)
+        logger.debug(f"[CANAL] Canais salvos: {[ch.name for ch in channels]}")
+
+        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
+        await limpar_mensagens(message.channel, bot.user, message.author)
+        msg = await message.channel.send(embed=embed)
+        await msg.add_reaction("🔙")
+        await msg.add_reaction("✅")
+
+        user_progress.setdefault(guild_id, {})[user_id] = "get_channel_saved_embed"
+        push_embed(user_id, "get_channel_select_embed")
+        mensagem_voltar_ids[str(guild_id)] = msg.id
+        mensagem_avancar_ids[str(guild_id)] = msg.id
+        criando_modo[user_id] = "canal_salvo"
+        logger.debug(f"[STATE] Canais do usuário {user_id} salvos com sucesso. user_progress atualizado para 'get_channel_saved_embed'.")
+        return
+
     # --- NOVA VERIFICAÇÃO: Ignorar mensagens com # no get_mode_selected_embed ---
     if current == "get_mode_selected_embed" and message.content.startswith("#"):
         logger.debug("[SKIP] Ignorando mensagem de nome dentro de get_mode_selected_embed.")
@@ -2068,87 +2187,6 @@ async def on_message(message):
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
         logger.debug(f"[STATE] Cargo '{role.name}' salvo com sucesso. user_progress atualizado para 'get_role_saved_embed'.")
-        return
-
-    # -------------------- ETAPA CANAL / ATRIBUIR RECEPÇÃO --------------------
-    if estado == "selecionando_canal":
-        logger.debug(f"[FLOW] Iniciando etapa de seleção de canal para user={user_id}, guild={guild_id}.")
-        channels = list(message.channel_mentions)
-        content_lower = message.content.lower()
-        logger.debug(f"[INPUT] Canais mencionados: {[ch.name for ch in channels]} | Conteúdo da mensagem: '{message.content}'")
-
-        for ch in message.guild.text_channels + message.guild.voice_channels + message.guild.categories:
-            if ch.name.lower() == content_lower:
-                channels.append(ch)
-                logger.debug(f"[MATCH] Canal encontrado por nome: {ch.name}")
-
-        if not channels:
-            logger.debug(f"[VALIDATION] Nenhum canal válido encontrado para '{message.content}'.")
-            embed = get_invalid_channel_embed(idioma)
-            await limpar_mensagens(message.channel, bot.user, message.author)
-            msg = await message.channel.send(embed=embed)
-            user_progress[guild_id][user_id] = "get_invalid_channel_embed"  # ATUALIZA ESTADO
-            await msg.add_reaction("🔙")
-            mensagem_voltar_ids[str(guild_id)] = msg.id
-            criando_modo[user_id] = "canal_invalido"
-            logger.debug(f"[STATE] usuário {user_id} marcado como 'canal_invalido'. Embed enviado.")
-            return
-
-        # Validação de canais removidos
-        canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
-        if canais_removidos:
-            logger.debug(f"[VALIDATION] Canais removidos detectados: {canais_removidos}")
-        
-            embed = get_channel_removed_warning_embed(idioma, canais_removidos)
-            await limpar_mensagens(message.channel, bot.user, message.author)
-            msg = await message.channel.send(embed=embed)
-            user_progress[guild_id][user_id] = "get_channel_removed_warning_embed"  # ATUALIZA ESTADO
-            await msg.add_reaction("🔙")
-            mensagem_voltar_ids[str(guild_id)] = msg.id
-            criando_modo[user_id] = "erro_canal"
-            return
-
-        # Validação de conflito
-        canais_conflito = []
-        if not em_edicao.get(user_id, False):
-            canais_usados = []
-            modos_existentes = carregar_modos().get(str(guild_id), {}).get("modos", {})
-            for mid, m in modos_existentes.items():
-                if m.get("channels"):
-                    canais_usados.extend([str(ch) for ch in m["channels"]])
-            canais_conflito = [str(ch.id) for ch in channels if str(ch.id) in canais_usados]
-
-        if canais_conflito:
-            logger.debug(f"[VALIDATION] Conflito de canais detectado: {canais_conflito}")
-            embed = get_channel_conflict_warning_embed(idioma, canais_conflito)
-            await limpar_mensagens(message.channel, bot.user, message.author)
-            msg = await message.channel.send(embed=embed)
-            user_progress[guild_id][user_id] = "get_channel_conflict_warning_embed"  # ATUALIZA ESTADO
-            await msg.add_reaction("🔙")
-            mensagem_voltar_ids[str(guild_id)] = msg.id
-            criando_modo[user_id] = "erro_canal"
-            return
-
-        # Salva apenas os canais e mantém o modo existente
-        salvar_channels_modo(guild_id, modo_ids[user_id], channels)
-        modos = carregar_modos()
-        MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_ids[user_id]] = modos[str(guild_id)]["modos"][modo_ids[user_id]]
-        salvar_modos(modos)
-        logger.debug(f"[SAVE] Canais salvos para o modo {modo_ids[user_id]}: {[ch.name for ch in channels]}")
-
-        embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
-        await limpar_mensagens(message.channel, bot.user, message.author)
-        msg = await message.channel.send(embed=embed)
-        await msg.add_reaction("🔙")
-        await msg.add_reaction("✅")
-
-        user_progress.setdefault(guild_id, {})[user_id] = "get_channel_saved_embed"
-        push_embed(user_id, "get_channel_select_embed")
-
-        mensagem_voltar_ids[str(guild_id)] = msg.id
-        mensagem_avancar_ids[str(guild_id)] = msg.id
-        criando_modo[user_id] = "canal_salvo"
-        logger.debug(f"[STATE] Canais do usuário {user_id} salvos com sucesso. user_progress atualizado para 'get_channel_saved_embed'.")
         return
 
     # ----------------- CHAMADA DOS COMANDOS -----------------
