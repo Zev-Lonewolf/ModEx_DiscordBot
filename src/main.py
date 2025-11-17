@@ -63,7 +63,8 @@ from embed import (
     get_switch_mode_list_embed,
     get_switch_success_embed,
     get_switch_error_embed,
-    get_switch_not_found_embed
+    get_switch_not_found_embed,
+    get_clean_embed
 )
 
 def resetar_estado_usuario(guild_id, user_id):
@@ -417,21 +418,28 @@ def pop_embed(user_id):
     logger.debug(f"[EMBED] pop_embed vazio | user_id={user_id}")
     return None, ()
 
-async def limpar_mensagens(canal, autor1, autor2, quantidade=50):
+async def limpar_mensagens(canal, quantidade=50):
     def check(msg):
-        return msg.author in [autor1, autor2]
+        return not msg.pinned  # Não deleta mensagens fixadas
+
+    mensagens_deletadas = 0
     try:
-        await canal.purge(limit=quantidade, check=check)
-        logger.debug(f"[MSG] Mensagens limpas via purge | canal={canal}, autores=({autor1}, {autor2})")
+        deleted = await canal.purge(limit=quantidade, check=check)
+        mensagens_deletadas = len(deleted)
+        logger.debug(f"[MSG] {mensagens_deletadas} mensagens limpas via purge | canal={canal}")
+        return mensagens_deletadas
     except Exception as e:
         logger.debug(f"[MSG] Falha no purge ({e}) — usando fallback para deletar manualmente.")
-        async for m in canal.history(limit=50):
-            if m.author in [autor1, autor2]:
+        mensagens_deletadas = 0
+        async for m in canal.history(limit=quantidade):
+            if not m.pinned:  # Não deleta mensagens fixadas
                 try:
                     await m.delete()
-                    logger.debug(f"[MSG] Mensagem manualmente deletada | autor={m.author}")
+                    mensagens_deletadas += 1
+                    logger.debug(f"[MSG] Mensagem manualmente deletada")
                 except Exception as e:
                     logger.debug(f"[MSG] Falha ao deletar mensagem manualmente: {e}")
+        return mensagens_deletadas
 
 async def enviar_embed(canal, user_id, embed):
     try:
@@ -2335,24 +2343,17 @@ async def toggle_log(ctx):
     logger.debug(f"[LOG] Fluxo de confirmação de log iniciado para user={ctx.author.id} em guild={ctx.guild.id}")
 
 @bot.command(name="apagar", aliases=["Apagar", "APAGAR", "delete", "Delete", "DELETE"])
-async def apagar(ctx):
-    logger.debug(f"[CMD] apagar chamado por {ctx.author} ({ctx.author.id})")
-    await ctx.message.delete()
-    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
-    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
-    limpar_modos_incompletos(ctx.guild.id)
+async def apagar(ctx, quantidade: int = 50):
+    logger.debug(f"[CMD] apagar chamado por {ctx.author} ({ctx.author.id}) com quantidade={quantidade}")
+    try:
+        await ctx.message.delete()
+    except:
+        pass
 
+    quantidade_deletada = await limpar_mensagens(ctx.channel, quantidade)
     idioma = obter_idioma(ctx.guild.id)
-    modos = carregar_modos().get(str(ctx.guild.id), {}).get("modos", {})
-    embed = get_delete_mode_embed(idioma, modos)
-    msg = await ctx.channel.send(embed=embed)
-    
-    await msg.add_reaction("🔙")
-    user_progress.setdefault(ctx.guild.id, {})[ctx.author.id] = "get_delete_mode_embed"
-    criando_modo[ctx.author.id] = "apagando_modo"
-    
-    logger.debug(f"[APAGAR] Fluxo de deleção iniciado para {ctx.author.id}")
+    embed = get_clean_embed(idioma, quantidade_deletada, ctx.author)
+    await ctx.send(embed=embed)
 
 @bot.command(name="trocar", aliases=["Trocar", "TROCAR", "switch", "Switch", "SWITCH"])
 async def trocar(ctx):

@@ -1310,3 +1310,58 @@ def get_switch_not_found_embed(language, modo_nome):
             text="💡 Fun fact: the first Android version was named Astro Boy — but it never released."
         )
     return embed
+
+def get_clean_embed(language, quantidade, user):
+    if language == "pt":
+        if quantidade == 0:
+            embed = discord.Embed(
+                title="🧹 **Nada para Limpar**",
+                description=(
+                    "Nenhuma mensagem foi encontrada para exclusão.\n"
+                    "Tudo já estava organizado por aqui!"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.set_footer(
+                text="💡 Curiosidade NVIDIA: a empresa começou com apenas 3 engenheiros em 1993."
+            )
+            return embed
+        embed = discord.Embed(
+            title="🧹 **Limpeza Concluída**",
+            description=(
+                f"Foram removidas **{quantidade} mensagens** do chat.\n"
+                f"Ação solicitada por {user.mention}."
+            ),
+            color=discord.Color.green()
+        )
+        embed.set_footer(
+            text="💡 Curiosidade NVIDIA: o nome 'GeForce' surgiu para simbolizar 'força gráfica'."
+        )
+        return embed
+    else:
+        if quantidade == 0:
+            embed = discord.Embed(
+                title="🧹 **Nothing to Clean**",
+                description=(
+                    "No messages were found for deletion.\n"
+                    "Everything was already tidy!"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.set_footer(
+                text="💡 NVIDIA Fact: the company started with only 3 engineers in 1993."
+            )
+            return embed
+        embed = discord.Embed(
+            title="🧹 **Cleanup Complete**",
+            description=(
+                f"Successfully removed **{quantidade} messages**.\n"
+                f"Requested by {user.mention}."
+            ),
+            color=discord.Color.green()
+        )
+        embed.set_footer(
+            text="💡 NVIDIA Fact: the name 'GeForce' was meant to evoke 'graphics force'."
+        )
+        return embed
+    
