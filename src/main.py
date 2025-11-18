@@ -210,11 +210,11 @@ flow = {
         "next": "get_finish_mode_embed"
     },
     "get_channel_conflict_warning_embed": {
-        "back": "get_reception_mode_question_embed",
+        "back": "get_channel_select_embed",
         "next": "get_finish_mode_embed"
     },
     "get_channel_removed_warning_embed": {
-        "back": "get_reception_mode_question_embed",
+        "back": "get_channel_select_embed",
         "next": "get_finish_mode_embed"
     },
     "get_reception_skipped_embed": {
