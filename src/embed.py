@@ -86,8 +86,10 @@ def get_setup_embed(language):
             title="📘 **Painel de Configuração**",
             description=(
                 "Bem-vindo ao **modo de configuração do ModEx!** "
-                "Aqui você pode **criar, editar e organizar seus modos personalizados** com praticidade. "
-                "Quer se aprofundar mais? Dê uma olhada nas funções disponíveis ou explore o bot através de seu repositório no GitHub!\n\n"
+                "Aqui você pode **criar, editar e organizar seus modos personalizados** com praticidade.\n\n"
+                "**Aviso importante:**\n"
+                "> Certifique-se de que o bot esteja **acima dos cargos que irá gerenciar** e **abaixo dos cargos que ele não pode modificar**.\n"
+                "> Caso o bot esteja em um **cargo exclusivo para bots**, siga a mesma regra: coloque-o acima dos cargos que desejar que ele gerencie.\n\n"
                 "**Comandos Principais:**\n"
                 "> `!Trocar` → *Alterna o modo do servidor para todos os membros.*\n"
                 "> `!Criar` → *Começa a criação de um novo modo personalizado.*\n"
@@ -106,8 +108,10 @@ def get_setup_embed(language):
             title="📘 **Setup Panel**",
             description=(
                 "Welcome to **ModEx setup mode!** "
-                "Here you can **create, edit, and organize your custom modes** with ease. "
-                "Want to dig deeper? Take a look at the available functions or explore the bot through its GitHub repository!\n\n"
+                "Here you can **create, edit, and organize your custom modes** with ease.\n\n"
+                "**Important Notice:**\n"
+                "> Make sure the bot is **above the roles it will manage** and **below any roles it must not modify**.\n"
+                "> If the bot is placed in a **bot-only role**, apply the same rule: put it above the roles you want it to manage.\n\n"
                 "**Main Commands:**\n"
                 "> `!Switch` → *Switches the server mode for all members.*\n"
                 "> `!Create` → *Starts creating a new custom mode.*\n"
