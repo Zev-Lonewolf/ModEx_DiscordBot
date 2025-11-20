@@ -1,7 +1,7 @@
 <div id="top">
 
 <!-- HEADER STYLE: COMPACT -->
-<img src="https://i.imgur.com/1h97dog.png" width="204px" align="left" style="margin-right: 15px">
+<img src="https://i.imgur.com/1h97dog.png" width="100px" align="left" style="margin-right: 15px">
 
 # MODEX
 <em>Python Discord bot that manages multiple server modes by automatically toggling member roles. Supports multilingual servers and streamlines permission management based on the active mode.</em>
