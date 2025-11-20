@@ -1,30 +1,38 @@
-<div id="top">
+<!-- LOGO -->
+<p align="center">
+  <img src="https://i.imgur.com/YZEbeyq.png" width="200px" alt="ModEx Logo"/>
+</p>
 
-<!-- HEADER STYLE: COMPACT -->
-<img src="https://i.imgur.com/1h97dog.png" width="100px" align="left" style="margin-right: 15px">
+<!-- MINI RESUMO - Resumo curto inicial -->
+<p align="center">
+  <em>
+    MoDex (Mode Executor) is a Discord bot that reorganizes large servers into thematic sections by adjusting roles and channel visibility for each group.  
+    It lets you activate complete sets of channels — like RPG, anime, movies, games, or casual areas — showing only what matters for each moment.
+  </em>
+</p>
 
-# MODEX
-<em>Python Discord bot that manages multiple server modes by automatically toggling member roles. Supports multilingual servers and streamlines permission management based on the active mode.</em>
+<!-- BADGES PRINCIPAIS - Licença, tipo e status -->
+<p align="center">
+  <img src="https://img.shields.io/badge/License-GNU%20GPL%20v3-E92063?style=flat-square&logo=opensourceinitiative&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Discord-Bot-E92063?style=flat-square&logo=discord&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Current%20State-Release-E92063?style=flat-square"/>
+</p>
 
-<!-- BADGES: UNIFIED THEME -->
-<img src="https://img.shields.io/badge/License-GNU%20GPL%20v3-E92063?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="license">
-<img src="https://img.shields.io/badge/Discord-Bot-E92063?style=flat-square&logo=discord&logoColor=white" alt="Discord" />
-<img src="https://img.shields.io/badge/Current%20State-Release-E92063?style=flat-square" alt="Current State" />
+<!-- TÍTULO DA SEÇÃO DAS TECNOLOGIAS -->
+<p align="center"><em>Built with:</em></p>
 
-<br/>
-
-<em>Built with the tools and technologies:</em>
-
-<img src="https://img.shields.io/badge/Python-3.14-E92063?style=flat-square&logo=Python&logoColor=white" alt="Python">
-<img src="https://img.shields.io/badge/Discord.py-2.0+-E92063?style=flat-square&logo=discord&logoColor=white" alt="Discord.py">
-<img src="https://img.shields.io/badge/JSON-Data-E92063?style=flat-square&logo=json&logoColor=white" alt="JSON">
-<img src="https://img.shields.io/badge/Git-F05032?style=flat-square&logo=Git&logoColor=white" alt="Git">
-<img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=GitHub&logoColor=white" alt="GitHub">
-<img src="https://img.shields.io/badge/VS%20Code-E92063?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code">
-
-<br clear="left"/>
+<!-- BADGES TECNOLOGIAS - Ferramentas usadas no projeto -->
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.14-E92063?style=flat-square&logo=Python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Discord.py-2.0+-E92063?style=flat-square&logo=discord&logoColor=white"/>
+  <img src="https://img.shields.io/badge/JSON-Data-E92063?style=flat-square&logo=json&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Git-F05032?style=flat-square&logo=Git&logoColor=white"/>
+  <img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=GitHub&logoColor=white"/>
+  <img src="https://img.shields.io/badge/VS%20Code-E92063?style=flat-square&logo=visualstudiocode&logoColor=white"/>
+</p>
 
 ---
+
 <details><summary><b>📋 Table of Contents</b></summary>
 
 - [🚀 Quick Summary](#-quick-summary)
