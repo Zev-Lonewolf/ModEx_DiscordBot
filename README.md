@@ -35,21 +35,21 @@
 
 <details><summary><b>📋 Table of Contents</b></summary>
 
-- [🚀 Quick Summary](#-quick-summary)
-- [📊 Current Status](#-current-status)
-- [💡 About the Project](#-about-the-project)
-- [🛠️ Technologies](#️-technologies)
-- [⚡ How to Use](#-how-to-use)
-  - [📥 Installation](#-installation)
-  - [🎯 Usage Examples](#-usage-examples)
-  - [🧪 Tests](#-tests)
-- [🏗️ Technical Details](#️-technical-details)
-- [🗺️ Roadmap](#️-roadmap)
-- [🤝 How to Contribute](#-how-to-contribute)
-- [🙏 Acknowledgments](#-acknowledgments)
-- [⭐ Support the Developer](#-support-the-developer)
-- [📞 Contact](#-contact)
-- [📜 License](#-license)
+- [Overview](#overview)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Project Index](#project-index)
+- [How to Use](#how-to-use)
+  - [Installation](#installation)
+  - [Running the Bot](#running-the-bot)
+  - [Tests](#tests)
+- [Technical Details](#technical-details)
+- [Roadmap](#roadmap)
+- [How to Contribute](#how-to-contribute)
+- [Acknowledgments](#acknowledgments)
+- [Support the Developer](#support-the-developer)
+- [Contact](#contact)
+- [License](#license)
 
 </details>
 
