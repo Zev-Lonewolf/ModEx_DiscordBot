@@ -33,9 +33,11 @@
 
 ---
 
+<!-- Collapsible Table of Contents Section -->
 <details><summary><b>📋 Table of Contents</b></summary>
 
 - [Overview](#overview)
+  - [Why ModEx?](#ㅤ---)
 - [Features](#features)
 - [Project Structure](#project-structure)
 - [Project Index](#project-index)
@@ -53,20 +55,40 @@
 
 </details>
 
+<!-- OVERVIEW - Visão Geral do Projeto -->
 ## Overview
 
-**ModEx Discord Bot** is a robust, multilingual system designed for complete mode management in Discord servers. It enables creating, editing, and switching between role and channel configurations with advanced validation, detailed logging, and an interactive reaction-based interface.
+**ModEx Discord Bot** is a structured, multilingual system built to create, edit, manage, and seamlessly switch between fully customized server *modes*.  
+A **mode** represents a complete configuration of roles and channels that determines what each member can see or access, allowing large or multi-theme servers to reorganize themselves instantly and efficiently.
 
-**Why ModEx?**
+The system was originally inspired by the challenge of maintaining different “sections” within a shared community — such as RPG areas, casual spaces, or thematic categories like movies or music. Instead of manually toggling permissions or updating roles for dozens of users, ModEx automates the entire workflow:
 
-This project provides a full-featured solution for server administrators who need:
+- When a mode is activated, all members below the bot's hierarchy receive the corresponding role.  
+- Only the channels assigned to that mode remain visible to regular members.  
+- All other channels are hidden automatically.  
+- Server owners and roles above the bot always retain full visibility.
 
-- **🎯 Mode Management:** Create and switch between predefined role and channel configurations
-- **🔐 Strong Validation:** Automatic detection of conflicts, invalid channels, and permission issues
-- **🌍 Multilingual Support:** Fully available in Portuguese and English
-- **📊 Advanced Logging System:** Debug mode with detailed operation tracking
-- **🎨 Intuitive Interface:** Reaction-based navigation with interactive embeds
-- **👥 Reception Management:** Automatic role assignment with conflict detection
+This approach allows administrators to manage multiple server layouts effortlessly, such as:
+
+- **RPG Mode:** Story channels, character sheets, NPC areas, command rooms, etc.  
+- **Casual Mode:** General chat, gaming channels, media sharing, hangouts, and more  
+- **Custom Themes:** Movies, music, events, study groups, and any other structure you define  
+
+A mode can also be designated as a **reception mode**, automatically assigning a specific role to every new member who joins the server — similar to welcome or visitor roles, but without custom greetings. This ensures consistent onboarding and default visibility for newcomers.
+
+<!-- SUBSEÇÃO RECOLHÍVEL - "Why ModEx?" -->
+### ㅤ---
+<details><summary><b>Why ModEx?</b></summary>
+
+ModEx provides a powerful, scalable solution for administrators who need:
+
+- **🎯 Mode Management:** Create, modify, and activate complete role+channel configurations for any server context  
+- **🔐 Strong Validation:** Automatic detection of permission conflicts, missing channels, and misconfigured roles  
+- **🌍 Multilingual Support:** Full compatibility with Portuguese and English  
+- **📊 Advanced Logging:** Detailed debug information and operation tracking for better transparency  
+- **🎨 Intuitive Interface:** Reaction-based navigation and interactive embeds for smooth configuration  
+- **👥 Reception Management:** Automated onboarding roles with intelligent conflict handling  
+</details>
 
 ---
 
