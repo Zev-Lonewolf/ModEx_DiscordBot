@@ -36,10 +36,10 @@
 <!-- Collapsible Table of Contents Section -->
 <details><summary><b>📋 Table of Contents</b></summary>
 
-- [Overview](#overview)
+- [🧭 Overview](#overview)
   - [Why ModEx?](#ㅤ---)
-- [Features](#features)
-- [Project Structure](#project-structure)
+- [⚙️ Features](#features)
+- [📁 Project Structure](#project-structure) 
 - [Project Index](#project-index)
 - [How to Use](#how-to-use)
   - [Installation](#installation)
@@ -56,7 +56,8 @@
 </details>
 
 <!-- OVERVIEW - Visão Geral do Projeto -->
-## Overview
+<a id="overview"></a>
+## 🧭 Overview
 
 **ModEx Discord Bot** is a structured, multilingual system built to create, edit, manage, and seamlessly switch between fully customized server *modes*.  
 A **mode** represents a complete configuration of roles and channels that determines what each member can see or access, allowing large or multi-theme servers to reorganize themselves instantly and efficiently.
@@ -92,6 +93,8 @@ ModEx provides a powerful, scalable solution for administrators who need:
 
 ---
 
+<!-- FEATURES - Base section for any project -->
+<a id="features"></a>
 ## ⚙️ Features
 
 |      | Category         | Description |
@@ -105,7 +108,10 @@ ModEx provides a powerful, scalable solution for administrators who need:
 | ⚡ | **Optimized Workflow** | Cached modes, efficient IO, and responsive reaction-based navigation. |
 
 ---
-## 🟠 Project Structure
+
+<!-- Project Structure -->
+<a id="project-structure"></a>
+## 📁 Project Structure
 
 The project follows a clean and modular architecture, ensuring easy maintenance, scalability, and clear separation of responsibilities.
 
