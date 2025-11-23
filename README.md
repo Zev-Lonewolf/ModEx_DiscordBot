@@ -92,19 +92,17 @@ ModEx provides a powerful, scalable solution for administrators who need:
 
 ---
 
-## 🟡 Features
+## ⚙️ Features
 
-|      | Component        | Details                              |
-| :--- | :-------------- | :----------------------------------- |
-| ⚙️  | **Architecture**  | <ul><li>Discord bot built on discord.py 2.0+</li><li>Modular system with clear responsibility separation</li><li>Data persistence using JSON</li><li>Per-server multilingual state management</li></ul> |
-| 🔩 | **Code Quality**  | <ul><li>Full logging system with multiple levels</li><li>Robust exception handling</li><li>Permission validation in all commands</li><li>Smart mode caching</li></ul> |
-| 📄 | **Documentation** | <ul><li>Detailed README.md</li><li>Inline code comments</li><li>Contextual error messages</li><li>Integrated help system</li></ul> |
-| 🔌 | **Integrations**  | <ul><li>Full Discord API support (reactions, embeds, components)</li><li>Role and channel management</li><li>Granular permission system</li><li>Server state validation</li></ul> |
-| 🧩 | **Modularity**    | <ul><li>`utils/modos.py` module for business logic</li><li>`embed.py` module for interface generation</li><li>`idiomas.py` module for multilingual features</li><li>`logger_manager.py` module for centralized logging</li></ul> |
-| 🧪 | **Robustness**       | <ul><li>Validation of existing channels</li><li>Role conflict detection</li><li>Automatic cleanup of invalid states</li><li>Mode recovery for ongoing edits</li><li>Timeout and network error handling</li></ul> |
-| ⚡️  | **Performance**   | <ul><li>In-memory mode caching</li><li>Asynchronous reaction processing</li><li>Efficient cleanup of old messages</li><li>Optimized JSON operations</li></ul> |
-| 🛡️ | **Security**      | <ul><li>Mandatory `manage_guild` permission checks</li><li>Server ownership validation</li><li>Protection against unauthorized modifications</li><li>Per-server data isolation</li></ul> |
-| 📦 | **Dependencies**  | <ul><li>`discord.py>=2.0.0` for Discord integration</li><li>`python-dotenv` for environment variables</li><li>Python standard libraries (json, logging, datetime)</li></ul> |
+|      | Category         | Description |
+| :--- | :--------------- | :----------- |
+| 🎯 | **Mode System** | Create, edit and switch between complete server configurations (roles + channels). Includes reception modes for automatic onboarding. |
+| 🛠️ | **Smart Automation** | Automatic visibility control, conflict detection, role synchronization, and per-mode validation. |
+| 📚 | **Multilingual Support** | Full support for Portuguese and English with per-server language profiles. |
+| 🔍 | **Logging & Debugging** | Centralized logging with detailed debug insights for easier troubleshooting. |
+| 🧩 | **Modular Design** | Separated modules for logic, embeds, language handling, and logging. Easy to extend and maintain. |
+| 🛡️ | **Permission Safety** | Server ownership checks, bot hierarchy validation, and protected modification rules. |
+| ⚡ | **Optimized Workflow** | Cached modes, efficient IO, and responsive reaction-based navigation. |
 
 ---
 ## 🟠 Project Structure
