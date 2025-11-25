@@ -6,8 +6,8 @@
 <!-- MINI RESUMO - Resumo curto inicial -->
 <p align="center">
   <em>
-    MoDex (Mode Executor) is a Discord bot that reorganizes large servers into thematic sections by adjusting roles and channel visibility for each group.  
-    It lets you activate complete sets of channels — like RPG, anime, movies, games, or casual areas — showing only what matters for each moment.
+    ModEx (Mode Executor) is a Discord bot that reorganizes large servers into thematic sections by adjusting roles and channel visibility for each group.  
+    It lets you activate complete sets of channels — Whether for movies, music, sweepstakes, events, casual activities, or any other topic that requires automated organization.
   </em>
 </p>
 
@@ -40,9 +40,9 @@
   - [Why ModEx?](#ㅤ---)
 - [⚙️ Features](#features)
 - [📁 Project Structure](#project-structure) 
-- [Project Index](#project-index)
-- [How to Use](#how-to-use)
-  - [Installation](#installation)
+- [🗂️ Project Index](#project-index)
+- [🧩 Get Started](#get-started)
+  - [Invite or Installation](#invite)
   - [Running the Bot](#running-the-bot)
   - [Tests](#tests)
 - [Technical Details](#technical-details)
@@ -59,8 +59,7 @@
 <a id="overview"></a>
 ## 🧭 Overview
 
-**ModEx Discord Bot** is a structured, multilingual system built to create, edit, manage, and seamlessly switch between fully customized server *modes*.  
-A **mode** represents a complete configuration of roles and channels that determines what each member can see or access, allowing large or multi-theme servers to reorganize themselves instantly and efficiently.
+**ModEx Discord Bot** is a structured, multilingual system built to create, edit, manage, and seamlessly switch between fully customized server *modes*. A **mode** represents a complete configuration of roles and channels that determines what each member can see or access, allowing large or multi-theme servers to reorganize themselves instantly and efficiently.
 
 The system was originally inspired by the challenge of maintaining different “sections” within a shared community — such as RPG areas, casual spaces, or thematic categories like movies or music. Instead of manually toggling permissions or updating roles for dozens of users, ModEx automates the entire workflow:
 
@@ -70,12 +69,16 @@ The system was originally inspired by the challenge of maintaining different “
 - Server owners and roles above the bot always retain full visibility.
 
 This approach allows administrators to manage multiple server layouts effortlessly, such as:
+- **Work/Team Mode:** Project channels, task boards, reporting areas, meeting logs, documentation hubs.
+- **Event Mode:** Registration channels, ticket check-in, announcements, schedule boards, voice stages, staff-only areas.
+- **Study Mode:** Subject channels, resource libraries, group rooms, Q&A spaces, notebook uploads.
+- **Creative Mode:** Art dumps, music sharing, writing corners, critique rooms, project showcases.
+- **Marketplace Mode:** Buyer/seller listings, feedback threads, price checks, trade channels.
+- **Clan/Guild Mode:** Raid planning, ranking boards, team coordination, strategy rooms, voice hubs.
+- **Education/Workshop Mode:** Sessions, modules, exercises, instructor-only channels, resource repositories.
+- **And More!**
 
-- **RPG Mode:** Story channels, character sheets, NPC areas, command rooms, etc.  
-- **Casual Mode:** General chat, gaming channels, media sharing, hangouts, and more  
-- **Custom Themes:** Movies, music, events, study groups, and any other structure you define  
-
-A mode can also be designated as a **reception mode**, automatically assigning a specific role to every new member who joins the server — similar to welcome or visitor roles, but without custom greetings. This ensures consistent onboarding and default visibility for newcomers.
+A mode can also be designated as a **reception mode**, automatically assigning a specific role to every new member who joins the server, similar to welcome or visitor roles, but without custom greetings. This ensures consistent onboarding and default visibility for newcomers.
 
 <!-- SUBSEÇÃO RECOLHÍVEL - "Why ModEx?" -->
 ### ㅤ---
@@ -83,12 +86,10 @@ A mode can also be designated as a **reception mode**, automatically assigning a
 
 ModEx provides a powerful, scalable solution for administrators who need:
 
-- **🎯 Mode Management:** Create, modify, and activate complete role+channel configurations for any server context  
-- **🔐 Strong Validation:** Automatic detection of permission conflicts, missing channels, and misconfigured roles  
-- **🌍 Multilingual Support:** Full compatibility with Portuguese and English  
-- **📊 Advanced Logging:** Detailed debug information and operation tracking for better transparency  
-- **🎨 Intuitive Interface:** Reaction-based navigation and interactive embeds for smooth configuration  
-- **👥 Reception Management:** Automated onboarding roles with intelligent conflict handling  
+- 🔁 Admins no longer need to reconfigure permissions every time the server shifts focus.
+- 🧩 Community sections can be swapped in or out without rebuilding the server from scratch.
+- 🎯 Layouts stay consistent across updates, role changes, and new members joining.
+- 🏗️ Large servers with multiple themes or activities can stay organized without fragmenting into separate servers.
 </details>
 
 ---
@@ -136,7 +137,8 @@ ModEx_DiscordBot/
 └── requirements.txt            # Python dependencies
 ```
 
-### 🔴 Project Index
+<a id="project-index"></a>
+### 🗂️ Project Index
 
 <details open>
     <summary><b><code>ModEx_DiscordBot/</code></b></summary>
@@ -201,65 +203,75 @@ ModEx_DiscordBot/
     </blockquote>
 </details>
 </details>
-
+          
 ---
 
-### 🟤 Installation
+<a id="get-started"></a>
+## 🧩 Get Started
 
-Build the ModEx Discord Bot from source and install dependencies:
+ModEx offers two distinct setup paths designed for both everyday users and developers who want full control.
 
-1. **Clone the repository:**
+<a id="invite"></a>
+#### 🚀 Option A — Invite the Official Bot (recommended for most users)
+
+If your goal is simply **use ModEx immediately** on your Discord server, this is the fast lane.
+No install. No setup. No dependencies. No technical hurdles.
+Just invite and you're ready to go:
+
+> 🎉 **[Add ModEx to Your Discord Server](https://discord.com/oauth2/authorize?client_id=1396498715803385970)**
+> *(Instant access, works right away)*
+
+#### 🛠️ Option B — Build From Source (for developers & modders)
+
+If you want to **customize**, **understand the internals**, **debug**, or **contribute** to the project, you can install ModEx locally and run your own bot instance.
+<details>
+
+<summary><b>Show full installation steps</b></summary>
+
+#### **1. Clone the repository**
 
 ```sh
-    ❯ git clone https://github.com/seu-usuario/ModEx_DiscordBot.git
-    ❯ cd ModEx_DiscordBot
-    ```
-
-2. **Install dependencies:**
-
-**Using pip:**
-
-```sh
-❯ pip install -U discord.py>=2.0.0 python-dotenv
+git clone https://github.com/seu-usuario/ModEx_DiscordBot.git
+cd ModEx_DiscordBot
 ```
 
-**Using uv (faster):**
+#### **2. Install dependencies**
+**Using pip**
 
-    ```sh
-    ❯ uv pip install -U discord.py>=2.0.0 python-dotenv
-    ```
+```sh
+pip install -U discord.py>=2.0.0 python-dotenv
+```
 
-3. **Configure the environment variables:**
+**Using uv (recommended for speed)**
 
-Create a `.env` file in the `src/` folder with:
+```sh
+uv pip install -U discord.py>=2.0.0 python-dotenv
+```
+
+#### **3. Configure environment variables**
+Create a `.env` file inside the `src/` folder:
 
 ```env
-    TOKEN=your_discord_token_here
-    PREFIX=!
-    LANGUAGE_PATH=./languages.json
-    DEBUG_ENABLED=false
+TOKEN=your_discord_token_here
+PREFIX=!
+LANGUAGE_PATH=./languages.json
+DEBUG_ENABLED=false
 ```
 
-**How to obtain the token:**
-- Access the [Discord Developer Portal](https://discord.com/developers/applications)
-    - Create a new Application
-- Go to “Bot” and click “Add Bot”
-- Copy the token in “TOKEN”
+#### **4. Set up permissions for your custom bot**
+Inside the Discord Developer Portal:
 
-4. **Configure bot permissions:**
+* Enable the **bot** scope
+* Grant the required permissions:
 
-- In “Bot,” look for “SCOPES” and enable: `bot`
-    - Under “PERMISSIONS,” enable:
-      - Manage Roles
-      - Manage Channels
-      - Send Messages
-      - Manage Messages
-      - Add Reactions
-      - Read Messages/View Channels
+  * Manage Roles
+  * Manage Channels
+  * Send Messages
+  * Manage Messages
+  * Add Reactions
+  * Read Messages/View Channels
 
-
-
-Translated with DeepL.com (free version)
+---
 
 ### ⚫ Usage
 
@@ -328,6 +340,7 @@ The project includes automatic validations and error handling. To test:
    !setup
    # Select a different language
    ```
+</details>
 
 ---
 
@@ -393,5 +406,3 @@ ModEx Discord Bot is protected under the [MIT License](LICENSE). For more detail
 - All contributors and users of the project
 
 <div align="left"><a href="#top">⬆ Back to Top</a></div>
-
----
