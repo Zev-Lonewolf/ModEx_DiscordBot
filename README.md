@@ -231,7 +231,7 @@ If you want to **customize**, **understand the internals**, **debug**, or **cont
 #### **1. Clone the repository**
 
 ```sh
-git clone https://github.com/seu-usuario/ModEx_DiscordBot.git
+git clone https://github.com/Zev-Lonewolf/ModEx_DiscordBot.git
 cd ModEx_DiscordBot
 ```
 
@@ -361,9 +361,9 @@ The project includes automatic validations and error handling. To test:
 
 ## 🤝 Contributing
 
-- **💬 [Open Discussions](https://github.com/seu-usuario/ModEx_DiscordBot/discussions):** Share insights, provide feedback, or ask questions
-- **🐛 [Report Issues](https://github.com/seu-usuario/ModEx_DiscordBot/issues):** Submit bugs you find or request new features
-- **💡 [Send Pull Requests](https://github.com/seu-usuario/ModEx_DiscordBot/pulls):** Review open PRs and send your contributions
+- **💬 [Open Discussions](https://github.com/Zev-Lonewolf/ModEx_DiscordBot/discussions):** Share insights, provide feedback, or ask questions
+- **🐛 [Report Issues](https://github.com/Zev-Lonewolf/ModEx_DiscordBot/issues):** Submit bugs you find or request new features
+- **💡 [Send Pull Requests](https://github.com/Zev-Lonewolf/ModEx_DiscordBot/pulls):** Review open PRs and send your contributions
 
 <details closed>
 <summary>Contribution Guidelines</summary>
@@ -371,7 +371,7 @@ The project includes automatic validations and error handling. To test:
 1. **Fork the Repository:** Start by forking the repository to your GitHub account
 2. **Clone Locally:** Clone the forked repository using a git client
 ```sh
-   git clone https://github.com/seu-usuario/ModEx_DiscordBot
+   git clone https://github.com/Zev-Lonewolf/ModEx_DiscordBot
    ```
 3. **Create a New Branch:** Always work on a new branch with a descriptive name
 ```sh
