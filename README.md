@@ -200,9 +200,9 @@ ModEx_DiscordBot/
         </table>
     </blockquote>
 </details>
+</details>
 
 ---
-
 
 ### 🟤 Installation
 
