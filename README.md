@@ -42,9 +42,13 @@
 - [📁 Project Structure](#project-structure) 
 - [🗂️ Project Index](#project-index)
 - [🧩 Get Started](#get-started)
-  - [Invite or Installation](#invite)
-  - [Running the Bot](#running-the-bot)
-  - [Tests](#tests)
+  - [🚀 Invite or Installation](#invite)
+  - [🧠 Usage](#usage)
+    - [🤖 Using the Official Bot](#official-usage)
+    - [🧭 Mode Creation Flow](#mode-flow)
+    - [🔄 Navigation](#navigation)
+    - [🧩 Running Locally](#running-the-bot)
+    - [Tests](#tests)
 - [Technical Details](#technical-details)
 - [Roadmap](#roadmap)
 - [How to Contribute](#how-to-contribute)
@@ -273,48 +277,78 @@ Inside the Discord Developer Portal:
 
 ---
 
-### ⚫ Usage
+<a id="usage"></a>
+### 🧠 Usage
 
-Run the bot with:
+This section is divided into two paths:
+
+> * **Using the official bot** (recommended for regular users)
+> * **Running a local instance** (intended for developers)
+
+<a id="official-usage"></a>
+#### 🤖 Using the Official Bot:
+
+<!-- Esta parte é para usuários comuns que apenas querem usar o bot, sem rodar nada localmente. -->
+Once the bot is invited to your server, all interactions are performed using text commands.
+
+#### **Available Commands**
+
+| Command      | Aliases                  | Description               | Permission   |
+| ------------ | ------------------------ | ------------------------- | ------------ |
+| `!setup`     | `Setup`, `SETUP`         | Set server language       | manage_guild |
+| `!create`    | `Create`, `CREATE`       | Create new mode           | manage_guild |
+| `!edit`      | `Edit`, `EDIT`           | Edit existing mode        | manage_guild |
+| `!delete`    | `Delete`, `DELETE`       | Delete a mode             | manage_guild |
+| `!switch`    | `Switch`, `SWITCH`       | Switch to another mode    | manage_guild |
+| `!log`       | `Log`, `LOG`             | Enable/disable debug mode | manage_guild |
+| `!clean`     | `Clean`, `CLEAN`         | Clear bot messages        | manage_guild |
+| `!about`     | `About`, `ABOUT`         | Information about the bot | none         |
+| `!functions` | `Functions`, `FUNCTIONS` | List of functions         | none         |
+
+<a id="mode-flow"></a>
+#### 🧭 Mode Creation Flow
+
+<!-- Aviso claro: usuários comuns devem pular a parte de "Running Locally" e vir direto para cá. -->
+> **Regular users:**
+> If you are using the official bot, skip the “Running Locally” section and start here.
+
+1. Type `!create`
+2. Enter the mode name (validated automatically)
+3. Select a server role (confirm with ✅)
+4. Select visible channels (confirm with ✅)
+5. Configure reception mode if desired (confirm with ✅ or ❌)
+6. Finalize creation (confirm with ✅)
+
+<a id="navigation"></a>
+#### 🔄 Navigation
+
+* **✅ Next:** Proceed to the next step
+* **❌ Cancel:** Abort the current action
+* **🔙 Back:** Return to the previous step
+
+<a id="running-the-bot"></a>
+#### 🧩 Running Locally (Developers Only)
+
+<!-- Aviso claro de que esta parte NÃO é necessária para usuários comuns. -->
+> **Note:**
+> This section is intended for developers.
+> Regular users do **not** need to run the bot locally.
+
+Run the bot using:
 
 **Using pip:**
+
 ```sh
-❯ python src/main.py
+python src/main.py
 ```
 
 **Using uv:**
+
 ```sh
-❯ uv run src/main.py
+uv run src/main.py
 ```
 
-### Available Commands
-
-| Command | Aliases | Description | Permission |
-|---------|---------|-----------|-----------|
-| `!setup` | `Setup`, `SETUP` | Set server language | manage_guild |
-| `!create` | `Create`, `CREATE` | Create new mode | manage_guild |
-| `!edit` | `Edit`, `EDIT` | Edit existing mode | manage_guild |
-| `!delete` | `Delete`, `DELETE` | Delete a mode | manage_guild |
-| `!switch` | `Switch`, `SWITCH` | Switch to another mode | manage_guild |
-| `!log` | `Log`, `LOG` | Enable/disable debug mode | manage_guild |
-| `!clean` | `Clean`, `CLEAN` | Clear bot messages | manage_guild |
-| `!about` | `About`, `ABOUT` | Information about the bot | none |
-| `!functions` | `Functions`, `FUNCTIONS` | List of functions | none |
-
-### Mode Creation Flow
-
-1. Type `!create`
-2. Enter the mode name (will be validated)
-3. Select a server role (✅ to confirm)
-4. Select associated channels (✅ to confirm)
-5. Configure reception if desired (✅/❌)
-6. Finalize creation (✅)
-
-### Navigation
-
-- **✅ (Next):** Advances to the next step
-- **❌ (Cancel):** Cancels/denies the operation
-- **🔙 (Back):** Returns to the previous step
+---
 
 ### ⚪ Testing
 
