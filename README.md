@@ -52,8 +52,7 @@
 - [🌈 Roadmap](#roadmap)
 - [🤝 Contributing](#contributing)
 - [✨ Acknowledgments](#acknowledgments)
-- [Support the Developer](#support-the-developer)
-- [Contact](#contact)
+- [💖 Support the developers](#support-the-developers)
 - [License](#license)
 
 </details>
@@ -382,7 +381,6 @@ The project includes automatic validations and error handling. To test:
 
 ---
 
-
 <!-- ROADMAP - Future Plans / Milestones -->
 <a id="roadmap"></a>
 ## 🌈 Roadmap
@@ -446,8 +444,20 @@ The project includes automatic validations and error handling. To test:
 
 ---
 
-## 📜 License
+<a id="support-the-developers"></a>
+## 💖 Support the developers
 
+If this project helped you, inspired you, or saved you a few hours of work, consider giving it a ⭐ on GitHub, it truly makes a difference.
+You can also follow the people behind the project to stay updated on new releases, improvements, and related work. Every star, follow, and piece of feedback helps keep the project growing. Thanks for the support!
+
+* **Gleidson Gonzaga (“Zev”) — Project Owner & Lead Developer**  
+📎 https://github.com/Zev-Lonewolf  
+* **Noara Inazawa (“Noa”) — Technical Assistant & Co-Developer**  
+📎 No contact link currently available
+
+---
+
+## 📜 License
 ModEx Discord Bot is protected under the [MIT License](LICENSE). For more details, see the [LICENSE](LICENSE) file.
 
 ---
