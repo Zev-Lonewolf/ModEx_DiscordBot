@@ -49,8 +49,7 @@
     - [🔄 Navigation](#navigation)
     - [🧩 Running Locally](#running-the-bot)
     - [🧪 Testing](#tests)
-- [Technical Details](#technical-details)
-- [Roadmap](#roadmap)
+- [🌈 Roadmap](#roadmap)
 - [How to Contribute](#how-to-contribute)
 - [Acknowledgments](#acknowledgments)
 - [Support the Developer](#support-the-developer)
@@ -350,7 +349,6 @@ uv run src/main.py
 
 ---
 
-
 <!-- TESTS - Generic Testing Section -->
 <a id="tests"></a>
 ### 🧪 Testing
@@ -384,6 +382,9 @@ The project includes automatic validations and error handling. To test:
 
 ---
 
+
+<!-- ROADMAP - Future Plans / Milestones -->
+<a id="roadmap"></a>
 ## 🌈 Roadmap
 
 - [X] **Mode System:** Create, edit, delete, and switch between modes
