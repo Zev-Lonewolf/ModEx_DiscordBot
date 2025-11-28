@@ -51,7 +51,7 @@
     - [🧪 Testing](#tests)
 - [🌈 Roadmap](#roadmap)
 - [🤝 Contributing](#contributing)
-- [Acknowledgments](#acknowledgments)
+- [✨ Acknowledgments](#acknowledgments)
 - [Support the Developer](#support-the-developer)
 - [Contact](#contact)
 - [License](#license)
@@ -435,16 +435,21 @@ The project includes automatic validations and error handling. To test:
 
 ---
 
+<a id="acknowledgments"></a>
+## ✨ Acknowledgments
+
+* **discord.py** — For providing the core library that powers the project  
+* **Discord Developers Community** — For guidance, documentation, and shared knowledge  
+* **Contributors** — For code improvements, fixes, and enhancements  
+* **All users** — For feedback, testing, and helping the project evolve  
+* **Special thanks to all supporting tools and technologies** — Editors, platforms, libraries, and ecosystems that made development smoother and more reliable
+
+---
+
 ## 📜 License
 
 ModEx Discord Bot is protected under the [MIT License](LICENSE). For more details, see the [LICENSE](LICENSE) file.
 
 ---
-
-## ✨ Acknowledgments
-
-- [discord.py](https://github.com/Rapptz/discord.py) - Excellent Python library for Discord
-- [Discord Developers Community](https://discord.gg/discord-developers) - Support and resources
-- All contributors and users of the project
 
 <div align="left"><a href="#top">⬆ Back to Top</a></div>
