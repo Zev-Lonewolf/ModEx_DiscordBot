@@ -48,7 +48,7 @@
     - [🧭 Mode Creation Flow](#mode-flow)
     - [🔄 Navigation](#navigation)
     - [🧩 Running Locally](#running-the-bot)
-    - [Tests](#tests)
+    - [🧪 Testing](#tests)
 - [Technical Details](#technical-details)
 - [Roadmap](#roadmap)
 - [How to Contribute](#how-to-contribute)
@@ -350,15 +350,19 @@ uv run src/main.py
 
 ---
 
-### ⚪ Testing
+
+<!-- TESTS - Generic Testing Section -->
+<a id="tests"></a>
+### 🧪 Testing
 
 The project includes automatic validations and error handling. To test:
 
 1. **Mode creation test:**
-```sh
-!create
-# Follow the creation flow
-```
+    - Follow the creation flow
+  
+  ```sh
+  !create
+  ```
 
 2. **Validation test:**
    - Try to create a mode with a duplicate name
@@ -370,10 +374,12 @@ The project includes automatic validations and error handling. To test:
    - Check denied access logs
 
 4. **Multilingual test:**
-   ```sh
-   !setup
-   # Select a different language
-   ```
+    - Select a different language
+
+  ```sh
+  !Language
+  ```
+
 </details>
 
 ---
