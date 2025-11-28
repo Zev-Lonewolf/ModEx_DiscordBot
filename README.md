@@ -50,7 +50,7 @@
     - [🧩 Running Locally](#running-the-bot)
     - [🧪 Testing](#tests)
 - [🌈 Roadmap](#roadmap)
-- [How to Contribute](#how-to-contribute)
+- [🤝 Contributing](#contributing)
 - [Acknowledgments](#acknowledgments)
 - [Support the Developer](#support-the-developer)
 - [Contact](#contact)
@@ -400,6 +400,7 @@ The project includes automatic validations and error handling. To test:
 
 ---
 
+<a id="contributing"></a>
 ## 🤝 Contributing
 
 - **💬 [Open Discussions](https://github.com/Zev-Lonewolf/ModEx_DiscordBot/discussions):** Share insights, provide feedback, or ask questions
