@@ -53,7 +53,7 @@
 - [🤝 Contributing](#contributing)
 - [✨ Acknowledgments](#acknowledgments)
 - [💖 Support the developers](#support-the-developers)
-- [License](#license)
+- [📜 License](#license)
 
 </details>
 
@@ -457,9 +457,14 @@ You can also follow the people behind the project to stay updated on new release
 
 ---
 
+<a id="license"></a>
 ## 📜 License
-ModEx Discord Bot is protected under the [MIT License](LICENSE). For more details, see the [LICENSE](LICENSE) file.
 
----
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+For full details, see the [LICENSE](LICENSE) file.
 
-<div align="left"><a href="#top">⬆ Back to Top</a></div>
+<p align="left">
+  <a href="#top">
+    <img src="https://img.shields.io/badge/Back_to_Top_⭱-E92063?style=flat&logoColor=white" />
+  </a>
+</p>
