@@ -2353,21 +2353,30 @@ async def idioma(ctx):
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
-    idioma = obter_idioma(ctx.guild.id)
-    embed = get_language_embed(idioma, ctx.guild)
+    user_id = ctx.author.id
+    guild_id = ctx.guild.id
+    
+    # Reseta o estado atual do usuário
+    if guild_id in user_progress and user_id in user_progress[guild_id]:
+        user_progress[guild_id].pop(user_id, None)
+    
+    # Limpa qualquer estado de criação/edição
+    criando_modo.pop(user_id, None)
+    modo_ids.pop(user_id, None)
+    em_edicao.pop(user_id, None)
+    modo_atual.pop(user_id, None)
+
+    idioma_atual = obter_idioma(ctx.guild.id)
+    embed = get_language_embed(idioma_atual, ctx.guild)
     msg = await ctx.send(embed=embed)
 
     await msg.add_reaction("🇺🇸")
     await msg.add_reaction("🇧🇷")
 
-    mensagem_idioma_id[ctx.guild.id] = msg.id
+    # Atualiza a mensagem de idioma corretamente
+    mensagem_idioma_id[str(ctx.guild.id)] = msg.id
     resposta_enviada.discard(str(ctx.guild.id))
     logger.debug(f"[IDIOMA] mensagem de idioma enviada no servidor {ctx.guild.id}")
-
-@bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
-async def limpar(ctx):
-    logger.debug(f"[CMD] limpar chamado por {ctx.author} ({ctx.author.id})")
-    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
 
 @bot.command(name="log", aliases=["Log", "LOG"])
 @commands.has_permissions(manage_guild=True)
