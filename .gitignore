@@ -1,12 +1,6 @@
 src/.env
-/src/__pycache__
-data/idiomas.json
-data/modos.json
-/src/utils/__pycache__
-data/config_debug.json
-/logs
 /.venv
-data/client_secret.json
-data/credentials.json
-data/token.json
-src/utils/drive_sync.py
+/data
+/logs
+/src/__pycache__
+/src/utils/__pycache__
