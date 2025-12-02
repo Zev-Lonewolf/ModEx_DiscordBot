@@ -119,24 +119,34 @@ ModEx provides a powerful, scalable solution for administrators who need:
 The project follows a clean and modular architecture, ensuring easy maintenance, scalability, and clear separation of responsibilities.
 
 ```sh
-ModEx_DiscordBot/
-├── src/
-│   ├── main.py                 # Core bot file (commands, events, startup)
-│   ├── config.py               # Configuration handler and environment loader
-│   ├── embed.py                # Centralized embed builder
-│   ├── idiomas.py              # Multilingual handler (PT/EN)
-│   ├── .env                    # Environment variables (never commit)
-│   └── utils/
-│       ├── __init__.py
-│       ├── logger_manager.py   # Unified logging system
-│       ├── modos.py            # Mode management logic (roles/channels)
-│       └── __pycache__/
-├── data/
-│   ├── modos.json              # Server-specific mode storage
-│   └── config.json             # Global configuration file
-├── README.md                   # Project documentation
-├── .gitignore                  # Git ignore patterns
-└── requirements.txt            # Python dependencies
+MODEX_DISCORDBOT/
+├── .venv/                      # Python virtual environment (IGNORED)
+├── .vscode/                    # VSCode IDE settings (IGNORED)
+├── data/                       # Data storage directory
+│   ├── config_debug.json       # Debug configuration and settings
+│   ├── idiomas.json            # Language/translation data (PT/EN)
+│   └── modos.json              # Server modes configuration and storage
+├── logs/                       # Application log files (IGNORED)
+├── src/                        # Source code directory
+│   ├── __pycache__/            # Python bytecode cache (IGNORED)
+│   ├── utils/                  # Utility modules
+│   │   ├── __pycache__/        # Python bytecode cache (IGNORED)
+│   │   ├── drive_sync.py       # Google Drive backup and synchronization module
+│   │   ├── logger_manager.py   # Unified logging system and log management
+│   │   └── modos.py            # Mode creation, editing, and management logic
+│   ├── config.py               # Configuration handler and environment variable loader
+│   ├── embed.py                # Centralized embed builder for all Discord messages
+│   ├── idiomas.py              # Multilingual text handler (Portuguese/English)
+│   └── main.py                 # Core bot file with commands, events, and startup
+├── .env                        # Environment variables (sensitive data - IGNORED)
+├── .gitattributes              # Git attributes for line endings and file handling
+├── .gitignore                  # Git ignore patterns for temporary files
+├── LICENSE                     # Project license
+├── Procfile                    # Deployment configuration for Heroku/Railway
+├── README.md                   # Project documentation and setup instructions
+├── requirements.txt            # Python dependencies list
+├── runtime.txt                 # Python runtime version specification
+└── start.sh                   # Startup script for deployment platforms
 ```
 
 <a id="project-index"></a>
@@ -157,28 +167,28 @@ ModEx_DiscordBot/
                 <th style='text-align: left; padding: 8px;'>Description</th>
             </tr>
         </thead>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/main.py'>main.py</a></b></td>
-                <td style='padding: 8px;'>- Main bot file with command definitions<br>- Event handling (reactions, messages)<br>- Implementation of interactive embed flow<br>- Navigation system using reactions (✅, ❌, 🔙)<br>- Bot initialization and intents configuration</td>
-            </tr>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/config.py'>config.py</a></b></td>
-                <td style='padding: 8px;'>- Loading environment variables (.env)<br>- Definition of project constants<br>- Discord token and prefix configuration<br>- Path to language and data files</td>
-            </tr>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/embed.py'>embed.py</a></b></td>
-                <td style='padding: 8px;'>- Centralized generation of all Discord embeds<br>- Function for each step of the creation/edit flow<br>- Multilingual support with fallback to Portuguese<br>- Standardized visual formatting with themed colors<br>- Error, confirmation, information and success embeds</td>
-            </tr>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/idiomas.py'>idiomas.py</a></b></td>
-                <td style='padding: 8px;'>- Language management per server<br>- Loading multilingual dictionary<br>- Functions to get and set server language<br>- Support for multiple languages (Português, English)<br>- Centralized translation of all messages</td>
-            </tr>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/.env'>.env</a></b></td>
-                <td style='padding: 8px;'>- TOKEN: Bot Discord token<br>- PREFIX: Command prefix (default: !)<br>- LANG_PATH: Path to language file<br>- DEBUG_ENABLED: Debug mode (true/false)</td>
-            </tr>
-        </table>
-    </blockquote>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/main.py'>main.py</a></b></td>
+            <td style='padding: 8px;'>- Core bot file<br>- Setup de eventos e comandos<br>- Inicialização do bot e intents<br>- Integração das funcionalidades (modos, idiomas, embeds)</td>
+        </tr>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/config.py'>config.py</a></b></td>
+            <td style='padding: 8px;'>- Carregamento de variáveis do .env<br>- Contém caminhos globais (modos, idiomas, data)<br>- Inicializa constantes usadas pelos módulos<br>- Cache interno para modos</td>
+        </tr>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/embed.py'>embed.py</a></b></td>
+            <td style='padding: 8px;'>- Sistema central de geração de embeds<br>- Templates de erro, confirmação e navegação<br>- Suporte multilíngue via idiomas.py<br>- Estilo visual padronizado</td>
+        </tr>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/idiomas.py'>idiomas.py</a></b></td>
+            <td style='padding: 8px;'>- Manipulação de idiomas do servidor<br>- Leitura dos arquivos de tradução<br>- Funções para obter texto multilíngue<br>- Fallback automático para PT-BR</td>
+        </tr>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/.env'>.env</a></b></td>
+            <td style='padding: 8px;'>- Variáveis sensíveis<br>- TOKEN, PATHS, Google API keys<br>- Configurações de debug e email<br>- Não incluso no repositório</td>
+        </tr>
+    </table>
+</blockquote>
 </details>
 
 <details>
@@ -193,16 +203,20 @@ ModEx_DiscordBot/
                 <th style='text-align: left; padding: 8px;'>Description</th>
             </tr>
         </thead>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/utils/logger_manager.py'>logger_manager.py</a></b></td>
-                <td style='padding: 8px;'>- Centralized logging system with multiple levels<br>- Handler configuration for console and file<br>- Functions to load and save JSON configuration<br>- Detailed tracking of bot operations<br>- Debug mode with expanded logging</td>
-            </tr>
-            <tr style='border-bottom: 1px solid #eee;'>
-                <td style='padding: 8px;'><b><a href='./src/utils/modos.py'>modos.py</a></b></td>
-                <td style='padding: 8px;'>- Core logic for mode management<br>- Functions to create, edit, delete and apply modes<br>- Channel validation and conflict detection<br>- Management of welcome roles<br>- JSON data persistence<br>- Cleanup of incomplete and editing states</td>
-            </tr>
-        </table>
-    </blockquote>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/utils/logger_manager.py'>logger_manager.py</a></b></td>
+            <td style='padding: 8px;'>- Unified logging system<br>- Console/file handlers<br>- JSON config loading and saving<br>- Detailed tracking of bot operations<br>- Debug mode with extended logs</td>
+        </tr>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/utils/modos.py'>modos.py</a></b></td>
+            <td style='padding: 8px;'>- Mode creation and management<br>- Functions for editing, applying and deleting modes<br>- Welcome-role and channel validation<br>- Conflict detection<br>- JSON persistence and cleanup states</td>
+        </tr>
+        <tr style='border-bottom: 1px solid #eee;'>
+            <td style='padding: 8px;'><b><a href='./src/utils/drive_sync.py'>drive_sync.py</a></b></td>
+            <td style='padding: 8px;'>- Google Drive backup and synchronization<br>- Token refresh and authentication handling<br>- Service Account and user-based auth workflow<br>- Automatic upload and recovery routines</td>
+        </tr>
+    </table>
+</blockquote>
 </details>
 </details>
           
