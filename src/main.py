@@ -2,9 +2,10 @@ import re
 import os
 import json
 import discord
-from discord.ext import commands
-from config import TOKEN, PREFIX, CAMINHO_IDIOMAS
-from utils.logger_manager import logger, carregar_config, salvar_config, configurar_logger
+from utils.drive_sync import sync_file_to_drive
+from discord.ext import commands, tasks
+from config import TOKEN, PREFIX, CAMINHO_IDIOMAS, CAMINHO_MODOS
+from utils.logger_manager import logger, carregar_config, salvar_config, configurar_logger, CONFIG_PATH
 from idiomas import obter_idioma, definir_idioma, carregar_idiomas
 from utils.modos import (
     criar_modo,
@@ -84,6 +85,30 @@ intents.guilds = True
 intents.members = True
 
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
+MODOS_CACHE = carregar_modos()
+
+@tasks.loop(minutes=2)
+async def backup_task():
+    logger.info("Iniciando rotina de backup completo para o Drive.")
+    
+    try:
+        salvar_modos(MODOS_CACHE) 
+        logger.debug("Dados locais salvos com sucesso.")
+        
+        # Tenta sincronizar cada arquivo crítico com o Drive
+        sync_file_to_drive(local_file_path=CAMINHO_MODOS, drive_file_name="modos_bot.json")
+        sync_file_to_drive(local_file_path=CAMINHO_IDIOMAS, drive_file_name="idiomas_bot.json")
+        sync_file_to_drive(local_file_path=CONFIG_PATH, drive_file_name="config_debug.json")
+        
+        logger.info("Rotina de backup finalizada. Arquivos atualizados no Google Drive.")
+
+    except Exception as e:
+        logger.error(f"Erro fatal na rotina de backup/sincronização: {e}", exc_info=True)
+
+@backup_task.before_loop
+async def before_backup():
+    logger.debug("Aguardando o bot ligar para iniciar o loop de backup.")
+    await bot.wait_until_ready()
 
 # ----------------- VARIÁVEIS GLOBAIS -----------------
 mensagem_idioma_id = {}
@@ -916,8 +941,22 @@ async def resetar_permissoes_canal(canal, cargo=None):
 # ----------------- EVENTOS -----------------
 @bot.event
 async def on_ready():
+    try:
+        configurar_logger()
+        carregar_config() 
+    except Exception as e:
+        print(f"ERRO CRÍTICO na inicialização do Logger/Config: {e}") 
+
     print(f"Usuário conectado: {bot.user}!")
     verificar_arquivo_idiomas()
+    logger.info(f'Usuário conectado: {bot.user}! | Prefix usado: {PREFIX}')
+
+    if not backup_task.is_running():
+        try:
+            backup_task.start()
+            logger.info("Tarefa de backup iniciada com sucesso a cada 2 minutos (Teste).")
+        except Exception as e:
+            logger.error(f"Falha ao iniciar a backup_task: {e}", exc_info=True)
 
 @bot.event
 async def on_guild_join(guild):
