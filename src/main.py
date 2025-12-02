@@ -87,7 +87,7 @@ intents.members = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 MODOS_CACHE = carregar_modos()
 
-@tasks.loop(minutes=2)
+@tasks.loop(hours=1)
 async def backup_task():
     logger.info("Iniciando rotina de backup completo para o Drive.")
     
