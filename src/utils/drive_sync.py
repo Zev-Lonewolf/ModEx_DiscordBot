@@ -19,39 +19,39 @@ from utils.logger_manager import logger
 
 load_dotenv() 
 
-# ---------- CAMINHOS DOS ARQUIVOS ----------
+# Configurações de caminhos
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CREDENTIALS_FOLDER = os.path.join(BASE_DIR, 'data')
 TOKEN_FILE = os.path.join(CREDENTIALS_FOLDER, 'token.json') 
 
-# ---------- VARIÁVEIS DE AMBIENTE ----------
+# Variáveis de ambiente
 OWNER_EMAIL = os.getenv("OWNER_EMAIL")
 FOLDER_ID = os.getenv("FOLDER_ID")
 SCOPES = ['https://www.googleapis.com/auth/drive'] 
 AUTH_TIMEOUT_SECONDS = 30
-CACHE_EXPIRY_SECONDS = 60  # Cache expira após 1 minuto
+CACHE_EXPIRY_SECONDS = 60
 
-# 1. OAuth Pessoal/Aplicativo Instalado
+# OAuth Pessoal/Aplicativo Instalado
 try:
     CLIENT_SECRET_JSON_STRING = os.getenv("DRIVE_CLIENT_SECRET_FILE")
     CLIENT_SECRET_DATA = json.loads(CLIENT_SECRET_JSON_STRING).get('installed', {})
 except:
     CLIENT_SECRET_DATA = {}
     
-# 2. Service Account (Conta de Serviço)
+# Service Account (Conta de Serviço)
 try:
     SERVICE_ACCOUNT_JSON_STRING = os.getenv("DRIVE_SERVICE_ACCOUNT_FILE")
     SERVICE_ACCOUNT_DATA = json.loads(SERVICE_ACCOUNT_JSON_STRING)
 except:
     SERVICE_ACCOUNT_DATA = {}
 
-# Extrai Client ID e Secret
+# Credenciais OAuth
 OAUTH_CLIENT_ID = CLIENT_SECRET_DATA.get('client_id')
 OAUTH_CLIENT_SECRET = CLIENT_SECRET_DATA.get('client_secret')
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 
-# ---------- CACHE TEMPORÁRIO EM MEMÓRIA ----------
+# Cache em memória para controle de autenticação
 class TemporaryAuthCache:
     def __init__(self):
         self.cache = {
@@ -69,7 +69,6 @@ class TemporaryAuthCache:
         return self.cache.get(key, default)
     
     def is_expired(self):
-        """Verifica se o cache de primeira tentativa expirou"""
         first_attempt_time = self.cache.get('first_auth_attempt_time')
         if not first_attempt_time:
             return True
@@ -78,43 +77,33 @@ class TemporaryAuthCache:
         return elapsed > self.expiry_time
     
     def should_attempt_auth(self):
-        """Determina se pode tentar autenticação novamente"""
-        # Se nunca tentou, pode tentar
         if not self.cache.get('first_auth_attempt_time'):
             return True
         
-        # Se tentou mas expirou, pode tentar novamente
         if self.is_expired():
             self.reset_attempt_state()
             return True
         
-        # Se está em modo de hibernação, não tenta
         if self.cache.get('service_account_mode'):
             return False
         
-        # Se ainda não expirou, não tenta
         return False
     
     def mark_auth_attempt(self):
-        """Marca que uma tentativa de autenticação foi feita"""
         self.cache['first_auth_attempt_time'] = time.time()
     
     def reset_attempt_state(self):
-        """Reseta o estado de tentativas"""
         self.cache['first_auth_attempt_time'] = None
         self.cache['timeout_occurred'] = False
     
     def enable_service_account_mode(self):
-        """Ativa modo de hibernação permanente"""
         self.cache['service_account_mode'] = True
     
     def disable_service_account_mode(self):
-        """Desativa modo de hibernação"""
         self.cache['service_account_mode'] = False
         self.reset_attempt_state()
     
     def get_status(self):
-        """Retorna status atual do cache"""
         return {
             'service_account_mode': self.cache.get('service_account_mode', False),
             'timeout_occurred': self.cache.get('timeout_occurred', False),
@@ -123,18 +112,18 @@ class TemporaryAuthCache:
             'time_since_last_attempt': time.time() - self.cache.get('first_auth_attempt_time', 0) if self.cache.get('first_auth_attempt_time') else None
         }
 
-# Cache global em memória
 auth_cache = TemporaryAuthCache()
 
-# ---------- FUNÇÕES DE ENVIO DE E-MAIL ----------
+# Funções de envio de e-mail
 def send_auth_needed_email(recipient_email: str):
     if auth_cache.get('global_auth_email_sent'):
-        logger.debug("Email de intervenção já foi enviado, pulando.")
+        logger.debug("Email já enviado")
         return
     if not SENDER_EMAIL or not SENDER_PASSWORD:
-        logger.error("Credenciais SENDER_EMAIL/SENDER_PASSWORD ausentes no .env.")
+        logger.error("Credenciais ausentes")
         return
-    logger.critical(f"ALERTA: TOKEN NÃO ENCONTRADO. Email de intervenção enviado")
+    
+    logger.critical(f"ALERTA: TOKEN NÃO ENCONTRADO")
     
     msg = EmailMessage()
     msg["Subject"] = "⚠️ Ação Necessária: Autorização do Google Drive Pendente"
@@ -147,8 +136,7 @@ def send_auth_needed_email(recipient_email: str):
         f"Se você NÃO completar a autorização em {AUTH_TIMEOUT_SECONDS} segundos:\n"
         "1. O bot entrará em 'modo de hibernação'\n"
         "2. Usará a Service Account como fallback\n"
-        "3. Os BACKUPS NÃO serão feitos até você reiniciar o bot\n\n"
-        "Por favor, complete a autorização agora para manter os backups funcionando."
+        "3. Os BACKUPS NÃO serão feitos até você reiniciar o bot"
     )
     
     try:
@@ -157,16 +145,15 @@ def send_auth_needed_email(recipient_email: str):
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.send_message(msg)
         auth_cache.set('global_auth_email_sent', True)
-        
     except Exception as e:
         logger.error(f"Falha ao enviar e-mail: {e}")
 
 def send_fallback_email(recipient_email: str):
     if not SENDER_EMAIL or not SENDER_PASSWORD:
-        logger.error("Credenciais SENDER_EMAIL/SENDER_PASSWORD ausentes no .env.")
+        logger.error("Credenciais ausentes")
         return
 
-    logger.critical(f"ALERTA: ENTRANDO EM MODO DE FALLBACK. Email de fallback enviado")
+    logger.critical("ALERTA: ENTRANDO EM MODO DE FALLBACK")
     
     msg = EmailMessage()
     msg["Subject"] = "🔄 Modo de Hibernação Ativado: Service Account em Uso"
@@ -177,12 +164,7 @@ def send_fallback_email(recipient_email: str):
         "STATUS ATUAL:\n"
         "✅ Bot principal funcionando normalmente\n"
         "✅ Service Account ativada como fallback\n"
-        "❌ BACKUPS DO GOOGLE DRIVE DESATIVADOS\n\n"
-        "AÇÃO NECESSÁRIA:\n"
-        "1. Reinicie o bot ModEx\n"
-        f"2. Complete a autorização no navegador em {AUTH_TIMEOUT_SECONDS} segundos\n"
-        "3. Os backups voltarão a funcionar automaticamente\n\n"
-        "O bot continuará funcionando, mas SEM BACKUPS até sua intervenção."
+        "❌ BACKUPS DO GOOGLE DRIVE DESATIVADOS"
     )
     
     try:
@@ -193,7 +175,7 @@ def send_fallback_email(recipient_email: str):
     except Exception as e:
         logger.error(f"Falha ao enviar e-mail de fallback: {e}")
 
-# ---------- FUNÇÃO DE AUTENTICAÇÃO COM TIMEOUT SEGURO ----------
+# Autenticação com timeout
 class AuthTimeoutError(Exception):
     pass
 
@@ -215,36 +197,32 @@ def run_auth_flow_with_timeout():
             auth_error = e
             auth_completed.set()
     
-    # Inicia a thread de autenticação
     thread = threading.Thread(target=auth_thread, daemon=True)
     thread.start()
     
-    # Aguarda o resultado com timeout
     if auth_completed.wait(timeout=AUTH_TIMEOUT_SECONDS):
         if auth_error:
             raise auth_error
         return creds
     else:
-        # Timeout ocorreu
-        logger.warning(f"Timeout de {AUTH_TIMEOUT_SECONDS}s atingido, cancelando autenticação...")
+        logger.warning(f"Timeout de {AUTH_TIMEOUT_SECONDS}s atingido")
         raise AuthTimeoutError(f"Timeout de {AUTH_TIMEOUT_SECONDS} segundos")
 
-# ---------- FUNÇÃO PRINCIPAL: AUTENTICAÇÃO ----------
+# Autenticação principal do Google Drive
 def google_drive_authenticator():
     creds = None
 
-    # Verifica se está em modo de hibernação
     if auth_cache.get('service_account_mode'):
-        logger.warning("Modo de hibernação ativado, usando Service Account...")
+        logger.warning("Modo de hibernação ativado")
         try:
             if not SERVICE_ACCOUNT_DATA:
-                raise ValueError("Dados da Service Account ausentes.")
+                raise ValueError("Dados da Service Account ausentes")
             
             creds = service_account.Credentials.from_service_account_info(
                 SERVICE_ACCOUNT_DATA, 
                 scopes=SCOPES
             )
-            logger.info("Service Account autenticada (modo hibernação).")
+            logger.info("Service Account autenticada")
             return build('drive', 'v3', credentials=creds)
         except Exception as e:
             logger.critical(f"Falha na Service Account: {e}")
@@ -254,9 +232,8 @@ def google_drive_authenticator():
     if os.path.exists(TOKEN_FILE):
         try:
             creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-            logger.debug("Token de usuário carregado.")
+            logger.debug("Token de usuário carregado")
             
-            # Se token válido, desativa modo de hibernação se estiver ativo
             if not creds.expired and auth_cache.get('service_account_mode'):
                 auth_cache.disable_service_account_mode()
         except Exception as e:
@@ -271,51 +248,40 @@ def google_drive_authenticator():
                 creds.client_secret = OAUTH_CLIENT_SECRET
             
             creds.refresh(Request())
-            logger.info("Token renovado com sucesso.")
+            logger.info("Token renovado")
             
             with open(TOKEN_FILE, 'w') as token:
                 token.write(creds.to_json())
                 
-            # Desativa modo de hibernação se estava ativo
             if auth_cache.get('service_account_mode'):
                 auth_cache.disable_service_account_mode()
-                
         except Exception as e:
             logger.warning(f"Falha ao renovar token: {e}")
             creds = None
     
-    # 3. Se não tem token válido E pode tentar autenticação
+    # 3. Se não tem token válido
     if not creds and CLIENT_SECRET_DATA and auth_cache.should_attempt_auth():
-        logger.critical(f"Token ausente. Iniciando fluxo interativo com timeout de {AUTH_TIMEOUT_SECONDS}s.")
+        logger.critical(f"Token ausente. Iniciando fluxo interativo")
         
-        # Marca que está tentando autenticar
         auth_cache.mark_auth_attempt()
         
-        # EMAIL 1 (só se ainda não enviou)
         if not auth_cache.get('global_auth_email_sent'):
             send_auth_needed_email(OWNER_EMAIL)
         
         try:
-            # Tenta autenticação com timeout
             creds = run_auth_flow_with_timeout()
             
-            # Sucesso dentro do tempo
             with open(TOKEN_FILE, 'w') as token:
                 token.write(creds.to_json())
-            logger.info("[TOKEN] Novo token gerado e salvo com sucesso.")
+            logger.info("Novo token gerado")
             
-            # Reseta cache
             auth_cache.reset_attempt_state()
             auth_cache.disable_service_account_mode()
             
         except AuthTimeoutError:
-            # TIMEOUT ocorreu
             auth_cache.set('timeout_occurred', True)
-            
-            # EMAIL 2
             send_fallback_email(OWNER_EMAIL)
-            
-            logger.warning("Entrando em modo de hibernação...")
+            logger.warning("Entrando em modo de hibernação")
             auth_cache.enable_service_account_mode()
             creds = None
             
@@ -323,33 +289,30 @@ def google_drive_authenticator():
             logger.warning(f"Erro no fluxo de autenticação: {e}")
             creds = None
     
-    # 4. Se OAuth falhou e cache expirou, pode tentar novamente na próxima execução
-    # (o cache é automático devido ao expiry)
-    
-    # 5. Se está em modo de hibernação, usa Service Account
+    # 4. Se está em modo de hibernação, usa Service Account
     if not creds and auth_cache.get('service_account_mode'):
-        logger.warning("Usando Service Account como fallback temporário.")
+        logger.warning("Usando Service Account como fallback")
         try:
             if not SERVICE_ACCOUNT_DATA:
-                raise ValueError("Dados da Service Account ausentes.")
+                raise ValueError("Dados da Service Account ausentes")
             
             creds = service_account.Credentials.from_service_account_info(
                 SERVICE_ACCOUNT_DATA, 
                 scopes=SCOPES
             )
-            logger.info("Service Account autenticada (fallback).")
+            logger.info("Service Account autenticada")
         except Exception as e:
             logger.critical(f"Falha na Service Account: {e}")
             return None
     
-    # 6. Constrói serviço do Drive
+    # Constrói serviço do Drive
     if creds:
         try:
             service = build('drive', 'v3', credentials=creds)
             if auth_cache.get('service_account_mode'):
-                logger.warning("Google Drive em MODO DE HIBERNAÇÃO (backups bloqueados)")
+                logger.warning("Google Drive em MODO DE HIBERNAÇÃO")
             else:
-                logger.info("Google Drive autenticado com sucesso!")
+                logger.info("Google Drive autenticado")
             return service
         except Exception as e:
             logger.error(f'Erro ao construir serviço do Drive: {e}')
@@ -357,33 +320,27 @@ def google_drive_authenticator():
     
     return None
 
-# ---------- FUNÇÃO DE SINCRONIZAÇÃO ----------
+# Sincronização de arquivos
 def sync_file_to_drive(local_file_path: str, drive_file_name: str):
-    # Verifica se arquivo local existe
     if not os.path.exists(local_file_path):
         logger.error(f"Arquivo local não encontrado: {local_file_path}")
         return
     
-    # Verifica se está em modo de hibernação
     if auth_cache.get('service_account_mode'):
-        # Verifica se o cache expirou (1 minuto)
         if auth_cache.is_expired():
-            logger.info("Cache expirado, tentando autenticação normal novamente...")
+            logger.info("Cache expirado, tentando autenticação normal")
             auth_cache.disable_service_account_mode()
         else:
-            logger.critical(f"MODO DE HIBERNAÇÃO - BACKUP BLOQUEADO. Aguarde {CACHE_EXPIRY_SECONDS}s ou reinicie")
+            logger.critical(f"MODO DE HIBERNAÇÃO - BACKUP BLOQUEADO")
             return
     
-    # Autentica
     service = google_drive_authenticator()
     if not service:
         return
     
-    # Modo normal - faz backup
-    logger.debug(f"Fazendo backup de '{drive_file_name}'...")
+    logger.debug(f"Fazendo backup de '{drive_file_name}'")
     
     try:
-        # Busca arquivo no Drive
         query = f"name = '{drive_file_name}' and '{FOLDER_ID}' in parents and trashed = false"
         results = service.files().list(
             q=query, 
@@ -395,7 +352,6 @@ def sync_file_to_drive(local_file_path: str, drive_file_name: str):
         media = MediaFileUpload(local_file_path, mimetype='application/json')
         
         if not items:
-            # Cria novo arquivo
             file_metadata = {'name': drive_file_name, 'parents': [FOLDER_ID]}
             service.files().create(
                 body=file_metadata, 
@@ -405,7 +361,6 @@ def sync_file_to_drive(local_file_path: str, drive_file_name: str):
             ).execute()
             logger.info(f"Backup criado: {drive_file_name}")
         else:
-            # Atualiza arquivo existente
             file_id = items[0]['id']
             service.files().update(
                 fileId=file_id, 
@@ -421,7 +376,7 @@ def sync_file_to_drive(local_file_path: str, drive_file_name: str):
         else:
             logger.error(f'Erro ao sincronizar {drive_file_name}: {e}')
 
-# ---------- FUNÇÕES DE CONTROLE ----------
+# Funções de controle
 def get_auth_status():
     cache_status = auth_cache.get_status()
     return {
@@ -436,28 +391,24 @@ def get_auth_status():
     }
 
 def reset_auth_state():
-    # Reseta cache completamente
     global auth_cache
     auth_cache = TemporaryAuthCache()
     
-    # Remove token se existir
     if os.path.exists(TOKEN_FILE):
         os.remove(TOKEN_FILE)
     
-    logger.info("Estado de autenticação resetado completamente.")
+    logger.info("Estado de autenticação resetado")
     return True
 
 def force_new_auth():
-    # Reseta o cache de tentativas
     auth_cache.reset_attempt_state()
     auth_cache.disable_service_account_mode()
     
-    # Remove token
     if os.path.exists(TOKEN_FILE):
         os.remove(TOKEN_FILE)
     
-    logger.info("Nova autenticação forçada. Próximo backup solicitará autorização.")
+    logger.info("Nova autenticação forçada")
     return True
 
-# ---------- INICIALIZAÇÃO ----------
+# Inicialização
 logger.debug(f"Cache inicial: {auth_cache.get_status()}")
