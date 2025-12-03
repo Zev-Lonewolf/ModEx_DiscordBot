@@ -1010,7 +1010,6 @@ def get_log_activated_embed(language):
     return embed
 
 def get_log_deactivated_embed(language):
-
     if language == "pt":
         titulo = "**❌ Modo Log Desativado**"
         descricao = (

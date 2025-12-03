@@ -963,7 +963,7 @@ async def on_guild_join(guild):
     logger.info(f"Bot entrou no servidor: {guild.name} (ID: {guild.id})")
 
     # garante que o servidor tem uma entrada no sistema de idiomas
-    obter_idioma(guild.id)  # Isso cria a entrada se não existir
+    obter_idioma(guild.id)
     
     for channel in guild.text_channels:
         if channel.permissions_for(guild.me).send_messages:
@@ -2451,9 +2451,9 @@ async def toggle_log(ctx):
     push_embed(ctx.author.id, "get_setup_embed")
     logger.debug(f"[LOG] Fluxo de confirmação de log iniciado para user={ctx.author.id} em guild={ctx.guild.id}")
 
-@bot.command(name="apagar", aliases=["Apagar", "APAGAR", "delete", "Delete", "DELETE"])
-async def apagar(ctx, quantidade: int = 50):
-    logger.debug(f"[CMD] apagar chamado por {ctx.author} ({ctx.author.id}) com quantidade={quantidade}")
+@bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
+async def limpar(ctx, quantidade: int = 50):
+    logger.debug(f"[CMD] limpar chamado por {ctx.author} ({ctx.author.id}) com quantidade={quantidade}")
     try:
         await ctx.message.delete()
     except:
@@ -2463,6 +2463,59 @@ async def apagar(ctx, quantidade: int = 50):
     idioma = obter_idioma(ctx.guild.id)
     embed = get_clean_embed(idioma, quantidade_deletada, ctx.author)
     await ctx.send(embed=embed)
+
+@bot.command(name="apagar", aliases=["Apagar", "APAGAR", "delete", "Delete", "DELETE"])
+async def deletar(ctx):
+    logger.debug(f"[CMD] deletar (modos) chamado por {ctx.author} ({ctx.author.id})")
+    await ctx.message.delete()
+    await limpar_mensagens(ctx.channel, ctx.author, bot.user)
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
+    limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+    limpar_modos_incompletos(ctx.guild.id)
+
+    user_id = ctx.author.id
+    guild_id = ctx.guild.id
+    idioma = obter_idioma(guild_id)
+    
+    # Limpa estados anteriores
+    modo_ids.pop(user_id, None)
+    criando_modo[user_id] = None
+    
+    # Envia o embed para apagar modos
+    modos = carregar_modos().get(str(guild_id), {}).get("modos", {})
+    
+    # Filtra apenas modos finalizados (evita apagar modos em edição)
+    modos_finalizados = {}
+    for modo_id, modo_data in modos.items():
+        if modo_data.get("finalizado"):
+            modos_finalizados[modo_id] = modo_data
+    
+    if not modos_finalizados:
+        if idioma == "pt":
+            embed = discord.Embed(
+                title="❌ Nenhum Modo Disponível",
+                description="Não há modos finalizados para apagar.",
+                color=discord.Color.red()
+            )
+        else:
+            embed = discord.Embed(
+                title="❌ No Modes Available",
+                description="There are no finished modes to delete.",
+                color=discord.Color.red()
+            )
+        await ctx.send(embed=embed)
+        return
+    
+    embed = get_delete_mode_embed(idioma, modos_finalizados)
+    msg = await ctx.channel.send(embed=embed)
+    
+    # Adiciona reações
+    await msg.add_reaction("🔙")
+    
+    # Atualiza estados
+    user_progress.setdefault(guild_id, {})[user_id] = "get_delete_mode_embed"
+    criando_modo[user_id] = "apagando_modo"
+    logger.debug(f"[DELETAR] Fluxo de exclusão iniciado para {user_id}")
 
 @bot.command(name="trocar", aliases=["Trocar", "TROCAR", "switch", "Switch", "SWITCH"])
 async def trocar(ctx):
