@@ -1,5 +1,7 @@
 import re
 import os
+import sys
+from pathlib import Path
 import json
 import discord
 import asyncio
@@ -934,18 +936,45 @@ async def resetar_permissoes_canal(canal, cargo=None):
         return False
 
 # ----------------- EVENTOS -----------------
+CAMINHO_MAIN = None
+CAMINHO_PROJETO = None
+
+def obter_caminho_main():
+    global CAMINHO_MAIN, CAMINHO_PROJETO
+    caminho_atual = os.path.abspath(__file__)
+    CAMINHO_MAIN = caminho_atual
+    CAMINHO_PROJETO = Path(caminho_atual).parent.parent
+    
+    logger.debug(f"[INIT] Caminho do main.py armazenado: {CAMINHO_MAIN}")
+    logger.debug(f"[INIT] Caminho da raiz do projeto: {CAMINHO_PROJETO}")
+    
+    return CAMINHO_MAIN, CAMINHO_PROJETO
+
+def obter_caminho_arquivo(caminho_relativo):
+    if CAMINHO_PROJETO is None:
+        raise RuntimeError("Caminho do projeto não foi inicializado. Execute obter_caminho_main() primeiro.")
+    
+    caminho_completo = CAMINHO_PROJETO / caminho_relativo
+    logger.debug(f"[PATH] Caminho solicitado: {caminho_relativo} -> {caminho_completo}")
+
+    return caminho_completo
+
 @bot.event
 async def on_ready():
     try:
         configurar_logger()
-        carregar_config() 
+        carregar_config()
+        caminho_main, caminho_projeto = obter_caminho_main()
+        print(f"Caminho do main.py: {caminho_main}")
+        print(f"Caminho da raiz do projeto: {caminho_projeto}")
+
     except Exception as e:
         print(f"ERRO CRÍTICO na inicialização do Logger/Config: {e}") 
-
+    
     print(f"Usuário conectado: {bot.user}!")
     verificar_arquivo_idiomas()
     logger.info(f'Usuário conectado: {bot.user}! | Prefix usado: {PREFIX}')
-
+    
     if not backup_task.is_running():
         try:
             backup_task.start()
