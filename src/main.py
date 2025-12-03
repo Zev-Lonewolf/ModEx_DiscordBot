@@ -2,6 +2,7 @@ import re
 import os
 import json
 import discord
+import asyncio
 from utils.drive_sync import sync_file_to_drive
 from discord.ext import commands, tasks
 from config import TOKEN, PREFIX, CAMINHO_IDIOMAS, CAMINHO_MODOS
@@ -89,21 +90,18 @@ MODOS_CACHE = carregar_modos()
 
 @tasks.loop(hours=1)
 async def backup_task():
-    logger.info("Iniciando rotina de backup completo para o Drive.")
+    logger.info("Iniciando backup...")
     
     try:
-        salvar_modos(MODOS_CACHE) 
-        logger.debug("Dados locais salvos com sucesso.")
+        # Executa em thread separada para não bloquear
+        await asyncio.to_thread(sync_file_to_drive, CAMINHO_MODOS, "modos.json")
+        await asyncio.to_thread(sync_file_to_drive, CAMINHO_IDIOMAS, "idiomas.json")
+        await asyncio.to_thread(sync_file_to_drive, CONFIG_PATH, "config_debug.json")
         
-        # Tenta sincronizar cada arquivo crítico com o Drive
-        sync_file_to_drive(local_file_path=CAMINHO_MODOS, drive_file_name="modos_bot.json")
-        sync_file_to_drive(local_file_path=CAMINHO_IDIOMAS, drive_file_name="idiomas_bot.json")
-        sync_file_to_drive(local_file_path=CONFIG_PATH, drive_file_name="config_debug.json")
+        logger.info("Verificação completa, todas as medidas foram tomadas.")
         
-        logger.info("Rotina de backup finalizada. Arquivos atualizados no Google Drive.")
-
     except Exception as e:
-        logger.error(f"Erro fatal na rotina de backup/sincronização: {e}", exc_info=True)
+        logger.error(f"Erro no backup: {e}")
 
 @backup_task.before_loop
 async def before_backup():
@@ -891,10 +889,8 @@ async def apagar_modo_completo(guild_id, modo_id):
             logger.info(f"[DELETE] {canais_resetados}/{len(canais_para_resetar)} canais resetados")
         else:
             logger.error(f"[DELETE] Falha ao apagar modo {modo_id} após resetar canais")
-        
         if erros_reset:
             logger.warning(f"[DELETE] Erros ao resetar canais: {erros_reset}")
-        
         return sucesso_apagar
         
     except Exception as e:
@@ -925,7 +921,6 @@ async def resetar_permissoes_canal(canal, cargo=None):
         # Aplicar as novas permissões
         await canal.edit(overwrites=overwrites)
         logger.debug(f"[DELETE] Canal {canal.name} resetado para permissões padrão")
-        
         return True
         
     except discord.Forbidden:
@@ -954,7 +949,7 @@ async def on_ready():
     if not backup_task.is_running():
         try:
             backup_task.start()
-            logger.info("Tarefa de backup iniciada com sucesso a cada 2 minutos (Teste).")
+            logger.info("Tarefa de backup iniciada com sucesso!")
         except Exception as e:
             logger.error(f"Falha ao iniciar a backup_task: {e}", exc_info=True)
 
