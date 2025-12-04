@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import discord
 import asyncio
-from utils.drive_sync import sync_file_to_drive
+from utils.drive_sync import sync_file_to_drive, keep_alive
 from discord.ext import commands, tasks
 from config import TOKEN, PREFIX, CAMINHO_IDIOMAS, CAMINHO_MODOS
 from utils.logger_manager import logger, carregar_config, salvar_config, configurar_logger, CONFIG_PATH
@@ -2591,4 +2591,6 @@ async def trocar(ctx):
     
     logger.debug(f"[TROCAR] Lista de modos enviada para {user_id} | Modos: {modos_existentes}")
 # ----------------- RODA O BOT -----------------
-bot.run(TOKEN)
+if __name__ == "__main__":
+    keep_alive()
+    bot.run(TOKEN)

@@ -4,7 +4,10 @@ import sys
 import smtplib
 import ssl
 import json 
-import time 
+import time
+from flask import Flask, jsonify
+from threading import Thread
+import logging
 import threading
 from concurrent import futures 
 from email.message import EmailMessage
@@ -119,6 +122,48 @@ class TemporaryAuthCache:
         }
 
 auth_cache = TemporaryAuthCache()
+app = Flask(__name__)
+
+# Configurações de logging
+logger = logging.getLogger('ModExKeepAlive')
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('[%(asctime)s] %(levelname)s - %(message)s', '%Y-%m-%d %H:%M:%S')
+
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+# Desativa logs do Werkzeug
+werkzeug_log = logging.getLogger('werkzeug')
+werkzeug_log.setLevel(logging.ERROR)
+
+@app.route('/')
+def home():
+    return "Bot está online!", 200
+
+@app.route('/health')
+def health():
+    return jsonify(status="healthy", service="ModEx Bot"), 200
+
+@app.route('/ping')
+def ping():
+    logger.debug(f"Endpoint /ping acessado")
+    print("Ping recebido! Bot está respondendo.")
+    return "pong", 200
+
+def run():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
+def keep_alive():
+    t = Thread(target=run, daemon=True)
+    t.start()
+    msg = (
+        f"Servidor keep-alive iniciado | porta={os.environ.get('PORT', 8080)} | "
+        "endpoints=[GET / (status básico), GET /health (health check), GET /ping (ping/pong)]"
+    )
+    logger.debug(msg)
+    print(msg)
 
 # Funções de envio de e-mail
 def send_auth_needed_email(recipient_email: str):
@@ -131,20 +176,27 @@ def send_auth_needed_email(recipient_email: str):
     
     logger.critical(f"ALERTA: TOKEN NÃO ENCONTRADO")
     
+def send_auth_email(recipient_email: str):
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        logger.error("Credenciais ausentes")
+        return
+
     msg = EmailMessage()
     msg["Subject"] = "⚠️ Ação Necessária: Autorização do Google Drive Pendente"
     msg["From"] = SENDER_EMAIL
     msg["To"] = recipient_email
     msg.set_content(
-        "O bot ModEx não encontrou um token de autenticação válido para o Google Drive.\n\n"
-        "Uma janela do navegador foi aberta para você autorizar o acesso.\n"
+        f"Olá,\n\n"
+        "O bot ModEx detectou que não há um token de autenticação válido para o Google Drive.\n\n"
+        "Uma janela do navegador foi aberta para você autorizar o acesso. "
         f"Você tem {AUTH_TIMEOUT_SECONDS} segundos para completar a autorização.\n\n"
-        f"Se você NÃO completar a autorização em {AUTH_TIMEOUT_SECONDS} segundos:\n"
-        "1. O bot entrará em 'modo de hibernação'\n"
-        "2. Usará a Service Account como fallback\n"
-        "3. Os BACKUPS NÃO serão feitos até você reiniciar o bot"
+        "Caso a autorização NÃO seja completada dentro do prazo:\n"
+        "1. O bot entrará em modo de hibernação.\n"
+        "2. A Service Account será utilizada como fallback.\n"
+        "3. Os backups do Google Drive ficarão desativados até o reinício do bot.\n\n"
+        "Obrigado,\nEquipe ModEx Bot"
     )
-    
+
     try:
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
@@ -154,25 +206,29 @@ def send_auth_needed_email(recipient_email: str):
     except Exception as e:
         logger.error(f"Falha ao enviar e-mail: {e}")
 
+
 def send_fallback_email(recipient_email: str):
     if not SENDER_EMAIL or not SENDER_PASSWORD:
         logger.error("Credenciais ausentes")
         return
 
-    logger.critical("ALERTA: ENTRANDO EM MODO DE FALLBACK")
-    
+    logger.critical("ALERTA: Entrando em modo de fallback")
+
     msg = EmailMessage()
     msg["Subject"] = "🔄 Modo de Hibernação Ativado: Service Account em Uso"
     msg["From"] = SENDER_EMAIL
     msg["To"] = recipient_email
     msg.set_content(
+        f"Olá,\n\n"
         f"O bot ModEx NÃO recebeu autorização dentro dos {AUTH_TIMEOUT_SECONDS} segundos.\n\n"
         "STATUS ATUAL:\n"
         "✅ Bot principal funcionando normalmente\n"
         "✅ Service Account ativada como fallback\n"
-        "❌ BACKUPS DO GOOGLE DRIVE DESATIVADOS"
+        "❌ Backups do Google Drive DESATIVADOS\n\n"
+        "Por favor, reinicie o bot após a autorização para retomar os backups normais.\n\n"
+        "Obrigado,\nEquipe ModEx Bot"
     )
-    
+
     try:
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
