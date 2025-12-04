@@ -23,6 +23,12 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CREDENTIALS_FOLDER = os.path.join(BASE_DIR, 'data')
 TOKEN_FILE = os.path.join(CREDENTIALS_FOLDER, 'token.json') 
+token_env = os.getenv("TOKEN_JSON")
+if token_env:
+    os.makedirs(CREDENTIALS_FOLDER, exist_ok=True)
+    if not os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, 'w', encoding='utf-8') as f:
+            f.write(token_env)
 
 # Variáveis de ambiente
 OWNER_EMAIL = os.getenv("OWNER_EMAIL")
@@ -320,11 +326,66 @@ def google_drive_authenticator():
     
     return None
 
+def ensure_file_exists(local_file_path: str):
+    if os.path.exists(local_file_path):
+        return True
+    
+    try:
+        # Garante que o diretório existe
+        directory = os.path.dirname(local_file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            logger.info(f"Diretório criado: {directory}")
+        
+        # Cria arquivo JSON vazio
+        with open(local_file_path, 'w', encoding='utf-8') as f:
+            json.dump({}, f, indent=2)
+        
+        logger.info(f"Arquivo criado: {local_file_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Erro ao criar arquivo {local_file_path}: {e}")
+        return False
+
+def find_file_alternative_paths(filename: str):
+    # Lista de caminhos possíveis
+    possible_paths = [
+        os.path.join(BASE_DIR, 'data', filename),
+        os.path.join(BASE_DIR, filename),
+        os.path.join('/app', 'data', filename),
+        os.path.join('/app', filename),
+        os.path.join(os.getcwd(), 'data', filename),
+        os.path.join(os.getcwd(), filename),
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            logger.debug(f"Arquivo encontrado em caminho alternativo: {path}")
+            return path
+    
+    return None
+
 # Sincronização de arquivos
 def sync_file_to_drive(local_file_path: str, drive_file_name: str):
+    # Verifica se o arquivo existe no caminho fornecido
     if not os.path.exists(local_file_path):
-        logger.error(f"Arquivo local não encontrado: {local_file_path}")
-        return
+        logger.warning(f"Arquivo local não encontrado: {local_file_path}")
+        
+        # Tenta encontrar em caminhos alternativos
+        filename = os.path.basename(local_file_path)
+        alternative_path = find_file_alternative_paths(filename)
+        
+        if alternative_path:
+            logger.info(f"Usando caminho alternativo: {alternative_path}")
+            local_file_path = alternative_path
+        else:
+            # Tenta criar o arquivo
+            logger.info(f"Tentando criar arquivo: {local_file_path}")
+            if not ensure_file_exists(local_file_path):
+                logger.error(f"Não foi possível criar o arquivo: {local_file_path}")
+                return
+            logger.info(f"Arquivo criado com sucesso, procedendo com backup")
     
     if auth_cache.get('service_account_mode'):
         if auth_cache.is_expired():
