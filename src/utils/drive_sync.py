@@ -7,6 +7,7 @@ import json
 import time
 from flask import Flask, jsonify
 from threading import Thread
+import asyncio
 import logging
 import threading
 from concurrent import futures 
@@ -19,6 +20,16 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2 import service_account
 from utils.logger_manager import logger
+from src.main import bot, app
+from src.utils.modos import (
+    limpar_mensagens,
+    finalizar_modos_em_edicao,
+    limpar_modos_usuario,
+    limpar_modos_incompletos,
+    obter_idioma,
+    get_setup_embed,
+    enviar_embed
+)
 
 load_dotenv() 
 
@@ -122,41 +133,13 @@ class TemporaryAuthCache:
         }
 
 auth_cache = TemporaryAuthCache()
-app = Flask(__name__)
 
-# Configurações de logging
-logger = logging.getLogger('ModExKeepAlive')
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('[%(asctime)s] %(levelname)s - %(message)s', '%Y-%m-%d %H:%M:%S')
-
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-# Desativa logs do Werkzeug
-werkzeug_log = logging.getLogger('werkzeug')
-werkzeug_log.setLevel(logging.ERROR)
-
-@app.route('/')
-def home():
-    return "Bot está online!", 200
-
-@app.route('/health')
-def health():
-    return jsonify(status="healthy", service="ModEx Bot"), 200
-
-@app.route('/ping')
-def ping():
-    logger.debug(f"Endpoint /ping acessado")
-    print("Ping recebido! Bot está respondendo.")
-    return "pong", 200
-
-def run():
+def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def keep_alive():
-    t = Thread(target=run, daemon=True)
+    t = Thread(target=run_flask, daemon=True)
     t.start()
     msg = (
         f"Servidor keep-alive iniciado | porta={os.environ.get('PORT', 8080)} | "
@@ -164,6 +147,41 @@ def keep_alive():
     )
     logger.debug(msg)
     print(msg)
+
+# Função que replica o que seu comando setup faz de forma invisível
+async def run_setup_periodic():
+    await bot.wait_until_ready()
+    
+    class FakeChannel:
+        async def send(self, *args, **kwargs):
+            return
+
+    while True:
+        for guild in bot.guilds:
+            class DummyCtx:
+                def __init__(self, guild):
+                    self.guild = guild
+                    self.author = bot.user
+                    self.channel = FakeChannel()  # canal "invisível"
+                    self.message = type('msg', (), {'delete': lambda: None})()
+
+            ctx = DummyCtx(guild)
+            try:
+                limpar_mensagens(ctx.channel, ctx.author, bot.user)
+                finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
+                limpar_modos_usuario(ctx.guild.id, ctx.author.id)
+                limpar_modos_incompletos(ctx.guild.id)
+                idioma = obter_idioma(ctx.guild.id)
+                embed = get_setup_embed(idioma)
+                
+                # Envia de forma invisível
+                await enviar_embed(ctx.channel, ctx.author.id, embed)
+                
+                logger.debug(f"[AUTO] setup executado (invisível) no servidor {guild.name} ({guild.id})")
+            except Exception as e:
+                logger.error(f"Erro ao executar setup automático: {e}")
+        
+        await asyncio.sleep(600)
 
 # Funções de envio de e-mail
 def send_auth_needed_email(recipient_email: str):
