@@ -1698,9 +1698,31 @@ async def on_message(message):
     user_id = message.author.id
     guild_id = message.guild.id if message.guild else None
     
-    # SE NÃO É COMANDO E NÃO ESTÁ NO FLUXO ATIVO, IGNORA
+    # VERIFICAÇÃO PRIORITÁRIA 1: Bloquear mensagens com # quando não está no fluxo adequado
+    if message.content.startswith("#"):
+        current = user_progress.get(guild_id, {}).get(user_id)
+        estado = criando_modo.get(user_id)
+        
+        # Lista de estados válidos onde # é permitido
+        estados_validos_hashtag = [
+            "get_edit_embed",              # Selecionando modo para editar
+            "get_delete_mode_embed",       # Selecionando modo para apagar
+            "get_switch_mode_list_embed",  # Selecionando modo para trocar
+            "esperando_nome",              # Esperando nome do modo
+            "get_initial_create_embed",    # Na tela inicial de criação
+            "iniciando_edicao",            # Iniciando edição de modo
+            "nome_salvo",                  # Após salvar nome
+            "nome_conflito",               # Conflito de nome
+            "nome_invalido",               # Nome inválido
+            "selecionando_canal"           # Selecionando canal (aceita # para nome de canal)
+        ]
+        
+        # Se não está em um estado válido, IGNORAR a mensagem
+        if current not in estados_validos_hashtag and estado not in estados_validos_hashtag:
+            return
+    
+    # VERIFICAÇÃO PRIORITÁRIA 2: SE NÃO É COMANDO E NÃO ESTÁ NO FLUXO ATIVO, IGNORA
     if not message.content.startswith(PREFIX) and user_id not in criando_modo:
-        logger.debug(f"[SKIP] Mensagem normal ignorada: {message.content[:50]}...")
         return
 
     idioma = obter_idioma(guild_id) if guild_id else "pt"
@@ -2003,7 +2025,6 @@ async def on_message(message):
         # VERIFICAÇÃO EXTRA: Se está no fluxo de apagar, NÃO processa como criação
         current = user_progress.get(guild_id, {}).get(user_id)
         if current == "get_delete_mode_embed":
-            logger.debug("[SKIP] Mensagem # ignorada - usuário está no fluxo de apagar.")
             return
 
         logger.debug(f"[FLOW] Detectado início da etapa de nome. Conteúdo: {message.content}")
