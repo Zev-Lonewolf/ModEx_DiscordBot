@@ -5,3 +5,5 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 Flask==3.0.0
+dropbox>=11.36.0
+PyJWT>=2.8.0
