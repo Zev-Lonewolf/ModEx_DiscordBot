@@ -90,7 +90,7 @@ intents.members = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 MODOS_CACHE = carregar_modos()
 
-@tasks.loop(minutes=2)
+@tasks.loop(hours=1)
 async def backup_task():
     logger.info("Iniciando backup...")
     try:
@@ -2589,10 +2589,8 @@ async def trocar(ctx):
     logger.debug(f"[TROCAR] Lista de modos enviada para {user_id} | Modos: {modos_existentes}")
 
 # ----------------- RODA O BOT -----------------
-# ----------------- RODA O BOT -----------------
 @bot.event
 async def setup_hook():
-    """Hook de inicialização assíncrono"""
     logger.info("Inicializando tarefas periódicas...")
     # Inicia a tarefa de backup que você já tem
     if not backup_task.is_running():

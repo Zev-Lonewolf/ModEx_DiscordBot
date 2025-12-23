@@ -3,6 +3,9 @@ import sys
 import dropbox
 import asyncio
 import logging
+import tempfile
+from config import DATA_DIR
+from utils.logger_manager import CONFIG_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -154,10 +157,7 @@ def sync_all_files(data_dir, config_path=None):
 def keep_alive():
     pass
 
-def run_setup_periodic():
-    from config import DATA_DIR
-    from utils.logger_manager import CONFIG_PATH
-    
+def run_setup_periodic():    
     async def periodic_sync():
         logger.info("Tarefa Dropbox iniciada")
         
@@ -180,20 +180,14 @@ def run_setup_periodic():
     return periodic_sync()
 
 if __name__ == "__main__":
-    import logging
     logging.basicConfig(level=logging.INFO)
-    
     print("Teste Dropbox: ")
     
     # Testa conexão
     dbx = get_dropbox_client()
     if dbx:
         print("Conexão Dropbox OK")
-        try:
-            # Testa upload simples
-            from config import DATA_DIR
-            import tempfile
-            
+        try:            
             # Cria arquivo de teste
             test_content = b"Teste de backup " + os.urandom(10)
             with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.txt') as f:
