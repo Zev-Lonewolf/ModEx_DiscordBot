@@ -131,7 +131,7 @@ MODEX_DISCORDBOT/
 │   ├── __pycache__/            # Python bytecode cache (IGNORED)
 │   ├── utils/                  # Utility modules
 │   │   ├── __pycache__/        # Python bytecode cache (IGNORED)
-│   │   ├── drive_sync.py       # Google Drive backup and synchronization module
+│   │   ├── dropbox_sync.py     # DropBox backup and synchronization module
 │   │   ├── logger_manager.py   # Unified logging system and log management
 │   │   └── modos.py            # Mode creation, editing, and management logic
 │   ├── config.py               # Configuration handler and environment variable loader
@@ -146,7 +146,7 @@ MODEX_DISCORDBOT/
 ├── README.md                   # Project documentation and setup instructions
 ├── requirements.txt            # Python dependencies list
 ├── runtime.txt                 # Python runtime version specification
-└── start.sh                   # Startup script for deployment platforms
+└── start.sh                    # Startup script for deployment platforms
 ```
 
 <a id="project-index"></a>
@@ -212,12 +212,11 @@ MODEX_DISCORDBOT/
             <td style='padding: 8px;'>- Mode creation and management<br>- Functions for editing, applying and deleting modes<br>- Welcome-role and channel validation<br>- Conflict detection<br>- JSON persistence and cleanup states</td>
         </tr>
         <tr style='border-bottom: 1px solid #eee;'>
-            <td style='padding: 8px;'><b><a href='./src/utils/drive_sync.py'>drive_sync.py</a></b></td>
-            <td style='padding: 8px;'>- Google Drive backup and synchronization<br>- Token refresh and authentication handling<br>- Service Account and user-based auth workflow<br>- Automatic upload and recovery routines</td>
+            <td style='padding: 8px;'><b><a href='./src/utils/dropbox_sync.py'>dropbox_sync.py</a></b></td>
+            <td style='padding: 8px;'>- Dropbox backup and synchronization module<br>- Token refresh and authentication handling<br>- User-based auth workflow<br>- Automatic upload and recovery routines</td>
         </tr>
     </table>
 </blockquote>
-</details>
 </details>
           
 ---
