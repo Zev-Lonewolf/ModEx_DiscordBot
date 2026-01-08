@@ -5,9 +5,9 @@ from pathlib import Path
 import json
 import discord
 import asyncio
-from utils.dropbox_sync import sync_file_to_drive, keep_alive, run_setup_periodic
+from utils.dropbox_sync import sync_file_to_drive, run_setup_periodic, get_dropbox_client, StateManager, create_periodic_state_save, bootstrap_data_files
 from discord.ext import commands, tasks
-from config import TOKEN, PREFIX, CAMINHO_IDIOMAS, CAMINHO_MODOS
+from config import TOKEN, PREFIX, CAMINHO_IDIOMAS, CAMINHO_MODOS, DATA_DIR
 from utils.logger_manager import logger, carregar_config, salvar_config, configurar_logger, CONFIG_PATH
 from idiomas import obter_idioma, definir_idioma, carregar_idiomas
 from utils.modos import (
@@ -2589,20 +2589,31 @@ async def trocar(ctx):
     logger.debug(f"[TROCAR] Lista de modos enviada para {user_id} | Modos: {modos_existentes}")
 
 # ----------------- RODA O BOT -----------------
+dbx = get_dropbox_client()
+
+if not dbx:
+    logger.critical("Dropbox indisponível, abortando inicialização")
+    sys.exit(1)
+
+bootstrap_data_files(DATA_DIR, CONFIG_PATH)
+
+state_manager = StateManager(dbx)
+state_manager.load()
+state_manager.state.setdefault("boot_count", 0)
+state_manager.state["boot_count"] += 1
+state_manager.save()
+
+dropbox_task = None
+
 @bot.event
 async def setup_hook():
-    logger.info("Inicializando tarefas periódicas...")
-    # Inicia a tarefa de backup que você já tem
-    if not backup_task.is_running():
-        try:
-            backup_task.start()
-            logger.info("Tarefa de backup iniciada com sucesso!")
-        except Exception as e:
-            logger.error(f"Falha ao iniciar a backup_task: {e}", exc_info=True)
-    
-    # Inicia a tarefa de sincronização com Dropbox
-    bot.loop.create_task(run_setup_periodic())
+    global dropbox_task
+
+    if dropbox_task is None:
+        dropbox_task = bot.loop.create_task(run_setup_periodic())
+        logger.info("Task Dropbox iniciada")
+
+    bot.loop.create_task(create_periodic_state_save(state_manager))
     logger.info("Tarefa de sync do Dropbox agendada")
 
-keep_alive()
 bot.run(TOKEN)

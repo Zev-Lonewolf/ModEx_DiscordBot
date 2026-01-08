@@ -4,15 +4,47 @@ import dropbox
 import asyncio
 import logging
 import tempfile
+import json
+import io
+from dropbox.files import WriteMode
 from config import DATA_DIR
 from utils.logger_manager import CONFIG_PATH
 
+DROPBOX_STATE_PATH = "/modex/state.json"
+
+class StateManager:
+    def __init__(self, dbx):
+        self.dbx = dbx
+        self.state = {}
+
+    def load(self):
+        try:
+            _, res = self.dbx.files_download(DROPBOX_STATE_PATH)
+            remote_state = json.loads(res.content.decode("utf-8"))
+
+            for k, v in remote_state.items():
+                self.state.setdefault(k, v)
+
+            logger.info("Estado carregado do Dropbox")
+        except Exception:
+            logger.warning("Nenhum estado encontrado, mantendo estado atual")
+
+    def save(self):
+        data = json.dumps(self.state, ensure_ascii=False, indent=2)
+        self.dbx.files_upload(
+            data.encode("utf-8"),
+            DROPBOX_STATE_PATH,
+            mode=WriteMode.overwrite,
+        )
+        logger.info("Estado salvo no Dropbox")
+
 logger = logging.getLogger(__name__)
+_dbx_client = None
 
 def ensure_env_loaded():
     try:
         # Tenta ler qualquer variável do .env
-        test_var = os.getenv("TOKEN")
+        test_var = os.getenv("DROPBOX_REFRESH_TOKEN")
         if not test_var:
             # Se não tem, carrega o .env de src/
             from dotenv import load_dotenv
@@ -26,7 +58,6 @@ def ensure_env_loaded():
                 load_dotenv(env_path)
                 logger.debug(f".env carregado de: {env_path}")
             else:
-                # Fallback
                 load_dotenv()
                 logger.debug(".env carregado do diretório atual")
     except ImportError:
@@ -39,39 +70,39 @@ def ensure_env_loaded():
 
 # Garante que o .env está carregado
 ensure_env_loaded()
-DROPBOX_ACCESS_TOKEN = os.getenv("DROPBOX_ACCESS_TOKEN")
-
-if DROPBOX_ACCESS_TOKEN:
-    logger.debug(f"Token length: {len(DROPBOX_ACCESS_TOKEN)}")
-    if DROPBOX_ACCESS_TOKEN.startswith('sl.'):
-        logger.debug("Formato correto (starts with 'sl.')")
+DROPBOX_REFRESH_TOKEN = os.getenv("DROPBOX_REFRESH_TOKEN")
+DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
+DROPBOX_APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
 
 # Variáveis de controle
 backup_enabled = True
 sync_interval = 3600
 
 def get_dropbox_client():
-    if not DROPBOX_ACCESS_TOKEN:
-        logger.error("DROPBOX_ACCESS_TOKEN não encontrado")
-        logger.error("Verifique se o arquivo src/.env contém: DROPBOX_ACCESS_TOKEN=seu_token")
+    global _dbx_client
+
+    if _dbx_client:
+        return _dbx_client
+
+    if not all([DROPBOX_REFRESH_TOKEN, DROPBOX_APP_KEY, DROPBOX_APP_SECRET]):
+        logger.error("Credenciais Dropbox incompletas")
         return None
-    
     try:
-        token_clean = DROPBOX_ACCESS_TOKEN.strip()
-        logger.info("Conectando ao Dropbox...")
-        dbx = dropbox.Dropbox(token_clean)
-        
-        # Testa conexão
-        account = dbx.users_get_current_account()
-        logger.info(f"Conectado ao Dropbox como: {account.name.display_name}")
-        return dbx
-        
-    except dropbox.exceptions.AuthError as e:
-        logger.error(f"Erro de autenticação: {e}")
-        logger.error("Token pode estar expirado. Gere um novo em: https://www.dropbox.com/developers/apps")
-        return None
+        logger.info("Conectando ao Dropbox (singleton)...")
+
+        _dbx_client = dropbox.Dropbox(
+            oauth2_refresh_token=DROPBOX_REFRESH_TOKEN,
+            app_key=DROPBOX_APP_KEY,
+            app_secret=DROPBOX_APP_SECRET,
+        )
+
+        _dbx_client.users_get_current_account()
+        logger.info("Dropbox conectado com sucesso")
+        return _dbx_client
+
     except Exception as e:
-        logger.error(f"Erro: {e}")
+        logger.error(f"Erro ao criar cliente Dropbox: {e}")
+        _dbx_client = None
         return None
 
 def sync_file_to_drive(local_path, remote_filename):
@@ -154,9 +185,6 @@ def sync_all_files(data_dir, config_path=None):
         logger.error(f"Falhou: 0/{total} arquivos")
         return False
 
-def keep_alive():
-    pass
-
 def run_setup_periodic():    
     async def periodic_sync():
         logger.info("Tarefa Dropbox iniciada")
@@ -178,6 +206,16 @@ def run_setup_periodic():
                 logger.error(f"Erro: {e}")
                 await asyncio.sleep(300)
     return periodic_sync()
+
+def create_periodic_state_save(state_manager):
+    async def _task():
+        while True:
+            try:
+                state_manager.save()
+            except Exception as e:
+                logger.error(f"Erro ao salvar estado: {e}")
+            await asyncio.sleep(300)
+    return _task()
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -208,3 +246,40 @@ if __name__ == "__main__":
             print(f"Teste adicional falhou: {e}")
     else:
         print("Conexão Dropbox falhou")
+
+def download_file_if_missing(local_path, remote_path):
+    dbx = get_dropbox_client()
+    if not dbx:
+        return False
+
+    if os.path.exists(local_path):
+        logger.info(f"Arquivo já existe localmente: {local_path}")
+        return True
+
+    try:
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+
+        _, res = dbx.files_download(remote_path)
+        with open(local_path, "wb") as f:
+            f.write(res.content)
+
+        logger.info(f"Arquivo baixado do Dropbox: {local_path}")
+        return True
+
+    except dropbox.exceptions.ApiError as e:
+        logger.warning(f"Arquivo não encontrado no Dropbox: {remote_path}")
+        return False
+
+def bootstrap_data_files(data_dir, config_path):
+    logger.info("Bootstrap de arquivos iniciado")
+
+    files = [
+        (os.path.join(data_dir, "modos.json"), "/bot_backup/modos.json"),
+        (os.path.join(data_dir, "idiomas.json"), "/bot_backup/idiomas.json"),
+    ]
+
+    if config_path:
+        files.append((config_path, "/bot_backup/config_debug.json"))
+
+    for local, remote in files:
+        download_file_if_missing(local, remote)
