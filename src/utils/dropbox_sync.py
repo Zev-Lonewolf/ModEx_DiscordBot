@@ -1,22 +1,28 @@
+# Standard library imports
 import os
 import sys
-import dropbox
 import asyncio
 import logging
 import tempfile
 import json
 import io
+# Third-party imports
+import dropbox
 from dropbox.files import WriteMode
+# Internal project imports
 from config import DATA_DIR
 from utils.logger_manager import CONFIG_PATH
 
+# Dropbox storage path
 DROPBOX_STATE_PATH = "/modex/state.json"
 
+# Application state persistence manager
 class StateManager:
     def __init__(self, dbx):
         self.dbx = dbx
         self.state = {}
 
+    # Load state from remote storage
     def load(self):
         try:
             _, res = self.dbx.files_download(DROPBOX_STATE_PATH)
@@ -29,6 +35,7 @@ class StateManager:
         except Exception:
             logger.warning("Nenhum estado encontrado, mantendo estado atual")
 
+    # Save current state to remote
     def save(self):
         data = json.dumps(self.state, ensure_ascii=False, indent=2)
         self.dbx.files_upload(
@@ -38,18 +45,20 @@ class StateManager:
         )
         logger.info("Estado salvo no Dropbox")
 
+# Logger and client initialization
 logger = logging.getLogger(__name__)
 _dbx_client = None
 
+# Ensure environment variables are loaded
 def ensure_env_loaded():
     try:
-        # Tenta ler qualquer variável do .env
+        # Check for existing environment variables
         test_var = os.getenv("DROPBOX_REFRESH_TOKEN")
         if not test_var:
-            # Se não tem, carrega o .env de src/
+            # Load .env from source directory
             from dotenv import load_dotenv
             
-            # Encontra o caminho para src/.env
+            # Locate .env path
             current_dir = os.path.dirname(os.path.abspath(__file__))
             src_dir = os.path.dirname(current_dir)
             env_path = os.path.join(src_dir, '.env')
@@ -68,16 +77,17 @@ def ensure_env_loaded():
         return False
     return True
 
-# Garante que o .env está carregado
+# Load credentials
 ensure_env_loaded()
 DROPBOX_REFRESH_TOKEN = os.getenv("DROPBOX_REFRESH_TOKEN")
 DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
 DROPBOX_APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
 
-# Variáveis de controle
+# Control variables
 backup_enabled = True
 sync_interval = 3600
 
+# Singleton Dropbox client getter
 def get_dropbox_client():
     global _dbx_client
 
@@ -105,6 +115,7 @@ def get_dropbox_client():
         _dbx_client = None
         return None
 
+# Upload local file to Dropbox
 def sync_file_to_drive(local_path, remote_filename):
     if not backup_enabled:
         return False
@@ -133,6 +144,7 @@ def sync_file_to_drive(local_path, remote_filename):
         return True
         
     except dropbox.exceptions.ApiError as e:
+        # Handle missing directory
         if e.error.is_path() and e.error.get_path().is_not_found():
             try:
                 dbx.files_create_folder_v2("/bot_backup")
@@ -148,6 +160,7 @@ def sync_file_to_drive(local_path, remote_filename):
         logger.error(f"Erro: {e}")
         return False
 
+# Sync multiple files
 def sync_all_files(data_dir, config_path=None):
     if not backup_enabled:
         return False
@@ -156,12 +169,14 @@ def sync_all_files(data_dir, config_path=None):
     
     files_to_sync = []
     
+    # Collect data files
     if os.path.exists(data_dir):
         for file_name in ["modos.json", "idiomas.json"]:
             file_path = os.path.join(data_dir, file_name)
             if os.path.exists(file_path):
                 files_to_sync.append((file_path, file_name))
     
+    # Collect config files
     if config_path and os.path.exists(config_path):
         files_to_sync.append((config_path, "config_debug.json"))
     
@@ -185,6 +200,7 @@ def sync_all_files(data_dir, config_path=None):
         logger.error(f"Falhou: 0/{total} arquivos")
         return False
 
+# Setup periodic synchronization task
 def run_setup_periodic():    
     async def periodic_sync():
         logger.info("Tarefa Dropbox iniciada")
@@ -207,6 +223,7 @@ def run_setup_periodic():
                 await asyncio.sleep(300)
     return periodic_sync()
 
+# Periodic state backup task
 def create_periodic_state_save(state_manager):
     async def _task():
         while True:
@@ -217,29 +234,30 @@ def create_periodic_state_save(state_manager):
             await asyncio.sleep(300)
     return _task()
 
+# Script entry point for testing
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     print("Teste Dropbox: ")
     
-    # Testa conexão
+    # Connection test
     dbx = get_dropbox_client()
     if dbx:
         print("Conexão Dropbox OK")
         try:            
-            # Cria arquivo de teste
+            # Temporary test file
             test_content = b"Teste de backup " + os.urandom(10)
             with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.txt') as f:
                 f.write(test_content)
                 test_file = f.name
             
-            # Tenta upload
+            # Upload test
             success = sync_file_to_drive(test_file, "test_backup.txt")
             if success:
                 print("Upload de teste OK")
             else:
                 print("Upload de teste falhou")
             
-            # Limpa
+            # Cleanup
             os.unlink(test_file)
             
         except Exception as e:
@@ -247,6 +265,7 @@ if __name__ == "__main__":
     else:
         print("Conexão Dropbox falhou")
 
+# Download missing files from remote
 def download_file_if_missing(local_path, remote_path):
     dbx = get_dropbox_client()
     if not dbx:
@@ -270,6 +289,7 @@ def download_file_if_missing(local_path, remote_path):
         logger.warning(f"Arquivo não encontrado no Dropbox: {remote_path}")
         return False
 
+# Initialize project data files
 def bootstrap_data_files(data_dir, config_path):
     logger.info("Bootstrap de arquivos iniciado")
 

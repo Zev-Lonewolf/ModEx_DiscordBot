@@ -1,10 +1,14 @@
+# Standard library imports
 import json
 import os
+import time
+# Third-party imports
 import discord
+# Internal project imports
 from utils.logger_manager import logger
 from config import CAMINHO_MODOS, MODOS_CACHE
-import time
 
+# Load modes from json file
 def carregar_modos():
     if not os.path.exists(CAMINHO_MODOS):
         return {}
@@ -14,6 +18,7 @@ def carregar_modos():
         except json.JSONDecodeError:
             return {}
         
+# Save modes data to file
 def salvar_modos(dados):
     pasta = os.path.dirname(CAMINHO_MODOS)
     if pasta and not os.path.exists(pasta):
@@ -21,6 +26,7 @@ def salvar_modos(dados):
     with open(CAMINHO_MODOS, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
 
+# Create a new mode entry
 def criar_modo(server_id, user_id, nome_modo):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -39,6 +45,7 @@ def criar_modo(server_id, user_id, nome_modo):
     salvar_modos(dados)
     return modo_id
 
+# Check if a mode exists by name
 def modo_existe(server_id, nome_modo):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -49,6 +56,7 @@ def modo_existe(server_id, nome_modo):
             return modo_id
     return None
 
+# Save associated roles to a mode
 def salvar_roles_modo(server_id, modo_id, roles):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -62,6 +70,7 @@ def salvar_roles_modo(server_id, modo_id, roles):
         dados[server_id]["modos"][modo_id]["roles"] = role_ids
         salvar_modos(dados)
 
+# Save associated channels to a mode
 def salvar_channels_modo(server_id, modo_id, channels):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -70,6 +79,7 @@ def salvar_channels_modo(server_id, modo_id, channels):
         dados[server_id]["modos"][modo_id]["channels"] = [str(ch.id) for ch in channels]
         salvar_modos(dados)
 
+# Assign reception status and update channel permissions
 async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
     dados = carregar_modos()
     server_id = str(guild.id)
@@ -79,7 +89,7 @@ async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
     if server_id not in dados:
         return None
 
-    # Só desativa outros modos se um novo role (modo confirmado) foi definido
+    # Deactivate other reception modes if a new role is provided
     if role:
         for mid, modo in dados[server_id].get("modos", {}).items():
             if modo.get("recepcao", False):
@@ -93,11 +103,11 @@ async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
             print(f"[WARN] modo {modo_id} não encontrado em {server_id}")
             return None
     else:
-        # Não altera recepção se nenhum cargo foi confirmado
+        # Reception remains unchanged if no role is confirmed
         print(f"[INFO] Nenhum cargo definido — recepção permanece inalterada")
         return None
 
-    # Atualizar permissões
+    # Update channel permissions
     for ch in canais:
         if not ch:
             continue
@@ -121,6 +131,7 @@ async def atribuir_recepcao(guild, modo_id, canais, role=None, overwrite=False):
 
     return recepcao_anterior
 
+# Toggle reception status for a mode
 def salvar_recepcao_modo(server_id, modo_id, is_recepcao):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -129,6 +140,7 @@ def salvar_recepcao_modo(server_id, modo_id, is_recepcao):
         dados[server_id]["modos"][modo_id]["recepcao"] = is_recepcao
         salvar_modos(dados)
 
+# Check if a mode is currently being edited
 def esta_em_edicao(server_id, modo_id):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -139,6 +151,7 @@ def esta_em_edicao(server_id, modo_id):
         and dados[server_id]["modos"][modo_id].get("em_edicao", False)
     )
 
+# Set the editing status of a mode
 def set_em_edicao(server_id, modo_id, valor=True):
     dados = carregar_modos()
     server_id = str(server_id)
@@ -147,6 +160,7 @@ def set_em_edicao(server_id, modo_id, valor=True):
         dados[server_id]["modos"][modo_id]["em_edicao"] = valor
         salvar_modos(dados)
 
+# Reset editing status for a guild or user
 def reset_edicao(guild_id: int, user_id: int = None):
     dados = carregar_modos()
     guild_str = str(guild_id)
@@ -163,29 +177,30 @@ def reset_edicao(guild_id: int, user_id: int = None):
     
     salvar_modos(dados)
 
+# Update specific channel permissions and clean up old roles
 async def atualizar_permissoes_canal(canal, novo_cargo, bot_instance, criando_modo_dict, overwrite=False, modo_id=None, guild_id=None, user_id=None):
     try:
         logger.debug(f"[PERMISSÕES] Iniciando atualização para canal {canal.name}, cargo {novo_cargo.name}, modo={modo_id}")
         
-        # ✅ CORREÇÃO: Usar o backup dos cargos antigos
+        # Use backup data to clean up old roles
         if overwrite and user_id and 'backup_data' in criando_modo_dict and user_id in criando_modo_dict['backup_data']:
             backup = criando_modo_dict['backup_data'][user_id]
             cargos_antigos = backup.get('cargos_antigos', [])
             
             logger.debug(f"[BACKUP] Cargos antigos para limpeza: {cargos_antigos}")
             
-            # Remove APENAS os cargos antigos DESTE MODO
+            # Remove only the old roles for this mode
             cargos_removidos = []
             for role_id in cargos_antigos:
                 try:
                     role_id_int = int(role_id)
-                    # Não remove o novo cargo (se estiver na lista de antigos)
+                    # Do not remove the new role
                     if role_id_int == novo_cargo.id:
                         continue
                         
                     role = canal.guild.get_role(role_id_int)
                     if role:
-                        # Verificar se o bot tem permissão para gerenciar este cargo
+                        # Verify bot hierarchy permission
                         bot_member = canal.guild.get_member(bot_instance.user.id)
                         if bot_member and role.position < bot_member.top_role.position:
                             await canal.set_permissions(role, overwrite=None)
@@ -202,12 +217,12 @@ async def atualizar_permissoes_canal(canal, novo_cargo, bot_instance, criando_mo
             else:
                 logger.debug(f"[PERMISSÕES] Nenhum cargo antigo removido de {canal.name}")
         
-        # Agora aplica as permissões para o novo cargo
+        # Apply permissions for the new role
         try:
-            # Verificar se o bot tem permissão para modificar este cargo específico
+            # Check hierarchy for the new role
             bot_member = canal.guild.get_member(bot_instance.user.id)
             if bot_member and novo_cargo.position < bot_member.top_role.position:
-                # Define permissões para visualizar o canal
+                # Grant channel access permissions
                 await canal.set_permissions(
                     novo_cargo,
                     read_messages=True,
@@ -232,13 +247,14 @@ async def atualizar_permissoes_canal(canal, novo_cargo, bot_instance, criando_mo
         logger.error(f"[PERMISSÕES] Erro geral em atualizar_permissoes_canal: {e}")
         return False
 
+# Swap the reception role for a guild
 def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
     guild_id_str = str(guild_id)
     
     if guild_id_str not in modos:
         return None, novo_cargo_id
     
-    # Encontra o modo de recepção atual
+    # Identify the current reception mode and role
     modo_recepcao_anterior = None
     cargo_antigo_id = None
     
@@ -249,15 +265,15 @@ def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
                 cargo_antigo_id = int(modo_data["roles"][0])
             break
     
-    # Se é o mesmo cargo, não faz nada
+    # Return early if it is the same role
     if cargo_antigo_id == novo_cargo_id:
         return cargo_antigo_id, novo_cargo_id
     
-    # Remove recepção de todos os modos
+    # Reset all reception flags
     for mid in modos[guild_id_str]["modos"]:
         modos[guild_id_str]["modos"][mid]["recepcao"] = False
     
-    # Define o novo modo como recepção
+    # Set the new reception mode
     if modo_id in modos[guild_id_str]["modos"]:
         modos[guild_id_str]["modos"][modo_id]["recepcao"] = True
     
@@ -266,6 +282,7 @@ def substituir_cargo(modos, guild_id, modo_id, novo_cargo_id):
     logger.info(f"[RECEPÇÃO] Cargo de recepção substituído: {cargo_antigo_id} → {novo_cargo_id}")
     return cargo_antigo_id, novo_cargo_id
 
+# Validate selected channels for management permissions
 def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
     canais_validos = []
     canais_invalidos = []
@@ -288,6 +305,7 @@ def validar_canais(guild, canais_selecionados, canais_existentes_no_modo_atual):
 
     return canais_validos, canais_invalidos
 
+# Finalize modes currently in editing state
 def finalizar_modos_em_edicao(guild_id, user_id=None):
     dados = carregar_modos()
     guild_id_str = str(guild_id)
@@ -297,18 +315,18 @@ def finalizar_modos_em_edicao(guild_id, user_id=None):
     modos_guild = dados[guild_id_str].get("modos", {})
 
     for modo_id, modo in modos_guild.items():
-        # Se user_id for passado, só finaliza modos desse usuário
+        # Finalize for specific user or all modes
         if user_id:
             if modo.get("criador") == str(user_id) and modo.get("em_edicao", False):
                 modo["em_edicao"] = False
         else:
-            # Se não passar user_id, finaliza todos que estão em edição
             if modo.get("em_edicao", False):
                 modo["em_edicao"] = False
 
     dados[guild_id_str]["modos"] = modos_guild
     salvar_modos(dados)
 
+# Remove modes that were never finished
 def limpar_modos_incompletos(guild_id):
     guild_id_str = str(guild_id)
     dados = carregar_modos()
@@ -326,12 +344,13 @@ def limpar_modos_incompletos(guild_id):
         modos_guild.pop(modo_id, None)
 
     dados[guild_id_str]["modos"] = modos_guild
-    # Remove do cache também para evitar "ressurreição"
+    # Sync with cache
     if guild_id_str in MODOS_CACHE:
         MODOS_CACHE[guild_id_str]["modos"] = modos_guild
 
     salvar_modos(dados)
 
+# Clear unfinished modes for a specific user
 def limpar_modos_usuario(guild_id, user_id):
     dados = carregar_modos()
     guild_id_str = str(guild_id)
@@ -354,6 +373,7 @@ def limpar_modos_usuario(guild_id, user_id):
     MODOS_CACHE[guild_id_str] = dados[guild_id_str]
     salvar_modos(dados)
 
+# Delete a specific mode and its guild structure if empty
 def apagar_modo(guild_id, modo_id):
     dados = carregar_modos()
     guild_id_str = str(guild_id)
@@ -365,26 +385,27 @@ def apagar_modo(guild_id, modo_id):
     if modo_id_str not in dados[guild_id_str].get("modos", {}):
         return False
     
-    # Remove o modo
+    # Remove entry
     del dados[guild_id_str]["modos"][modo_id_str]
     
-    # Se não há mais modos, remove a estrutura do servidor
+    # Clean up guild structure if no modes remain
     if not dados[guild_id_str]["modos"]:
         del dados[guild_id_str]
     
     salvar_modos(dados)
     
-    # Atualiza cache
+    # Sync cache
     if guild_id_str in MODOS_CACHE:
         if modo_id_str in MODOS_CACHE[guild_id_str].get("modos", {}):
             del MODOS_CACHE[guild_id_str]["modos"][modo_id_str]
     return True
 
+# Apply a specific mode to the entire server
 async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
     try:
         logger.info(f"[TROCAR] Aplicando modo {modo_id} no servidor {guild.name}")
         
-        # Carrega os modos
+        # Load data and check mode existence
         modos = carregar_modos()
         guild_id_str = str(guild.id)
         
@@ -399,7 +420,7 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
             logger.error(f"[TROCAR] Modo {modo_nome} não tem cargos definidos")
             return False, "Modo não tem cargos definidos"
         
-        # Pega o novo cargo
+        # Resolve target role
         novo_cargo_id = int(modo_atual["roles"][0])
         novo_cargo = guild.get_role(novo_cargo_id)
         
@@ -407,7 +428,7 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
             logger.error(f"[TROCAR] Cargo {novo_cargo_id} não encontrado no servidor")
             return False, "Cargo não encontrado no servidor"
         
-        # Pega a posição do bot na hierarquia
+        # Get bot hierarchy position
         if bot_instance is None:
             from main import bot
             bot_instance = bot
@@ -419,16 +440,15 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
         
         bot_top_role = bot_member.top_role
         
-        # ESTRATÉGIA RADICAL: Remove TODOS os cargos abaixo do bot (exceto @everyone e o novo cargo)
+        # Identify roles to be removed based on hierarchy
         cargos_para_remover = []
-        
         for cargo in guild.roles:
             if (not cargo.is_default() and 
                 cargo != novo_cargo and 
                 cargo.position < bot_top_role.position):
                 cargos_para_remover.append(cargo)
         
-        # Processa todos os membros do servidor
+        # Process all non-bot members
         membros_processados = 0
         membros_modificados = 0
         erros = []
@@ -440,13 +460,13 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
             try:
                 membro_modificado = False
                 
-                # Remove TODOS os cargos abaixo do bot (exceto o novo)
+                # Remove lower hierarchy roles
                 for cargo_para_remover in cargos_para_remover:
                     if cargo_para_remover in member.roles:
                         await member.remove_roles(cargo_para_remover)
                         membro_modificado = True
                 
-                # Adiciona o novo cargo (sempre, mesmo que já tenha)
+                # Assign the new role
                 if novo_cargo not in member.roles:
                     await member.add_roles(novo_cargo)
                     membro_modificado = True
@@ -456,19 +476,15 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
                     membros_modificados += 1
                     
             except discord.Forbidden:
-                erro_msg = f"Sem permissão para gerenciar cargos de {member.display_name}"
-                erros.append(erro_msg)
+                erros.append(f"Sem permissão para gerenciar cargos de {member.display_name}")
             except discord.HTTPException as e:
-                erro_msg = f"Erro HTTP com {member.display_name}: {e}"
-                erros.append(erro_msg)
+                erros.append(f"Erro HTTP com {member.display_name}: {e}")
             except Exception as e:
-                erro_msg = f"Erro inesperado com {member.display_name}: {e}"
-                erros.append(erro_msg)
+                erros.append(f"Erro inesperado com {member.display_name}: {e}")
         
-        # Log principal simplificado
         logger.info(f"[TROCAR] O modo '{modo_nome}' foi aplicado para {membros_modificados} membros, com {len(cargos_para_remover)} cargos removidos e com {len(erros)} erros")
         
-        # Atualiza as permissões dos canais
+        # Update channel permissions for the mode
         canais_atualizados = 0
         if modo_atual.get("channels"):
             for canal_data in modo_atual["channels"]:
@@ -477,14 +493,14 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
                     canal = guild.get_channel(canal_id)
                     
                     if canal:
-                        # Remove permissões de TODOS os cargos abaixo do bot
+                        # Clear lower hierarchy permissions
                         for cargo_para_remover in cargos_para_remover:
                             try:
                                 await canal.set_permissions(cargo_para_remover, overwrite=None)
                             except Exception:
                                 pass
                         
-                        # Aplica permissões do novo cargo
+                        # Apply new role permissions
                         if novo_cargo.position < bot_top_role.position:
                             sucesso = await atualizar_permissoes_canal(
                                 canal, 
@@ -502,15 +518,13 @@ async def aplicar_modo_servidor(guild, modo_id, idioma, bot_instance=None):
                 except Exception:
                     pass
         
-        # Define este modo como o modo ativo (recepção)
+        # Set active reception mode
         for mid, modo_data in modos[guild_id_str]["modos"].items():
             modo_data["recepcao"] = (mid == modo_id)
         
         salvar_modos(modos)
         
-        # Mensagem de resultado SIMPLIFICADA para o usuário
         resultado = f"✅ **Modo '{modo_nome}' aplicado com sucesso!**"
-        
         if erros:
             resultado += f"\n⚠️ Ocorreram {len(erros)} erros (verifique logs)"
         

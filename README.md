@@ -23,7 +23,7 @@
 
 <!-- BADGES TECNOLOGIAS - Ferramentas usadas no projeto -->
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.14-E92063?style=flat-square&logo=Python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Python-3.12-E92063?style=flat-square&logo=Python&logoColor=white"/>
   <img src="https://img.shields.io/badge/Discord.py-2.0+-E92063?style=flat-square&logo=discord&logoColor=white"/>
   <img src="https://img.shields.io/badge/JSON-Data-E92063?style=flat-square&logo=json&logoColor=white"/>
   <img src="https://img.shields.io/badge/Git-F05032?style=flat-square&logo=Git&logoColor=white"/>

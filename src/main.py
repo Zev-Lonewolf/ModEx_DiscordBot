@@ -71,6 +71,7 @@ from embed import (
     get_clean_embed
 )
 
+# Reset user session state
 def resetar_estado_usuario(guild_id, user_id):
     criando_modo.pop(user_id, None)
     modo_ids.pop(user_id, None)
@@ -80,7 +81,7 @@ def resetar_estado_usuario(guild_id, user_id):
     modo_atual.pop(user_id, None)
     limpar_modos_usuario(guild_id, user_id)
 
-# ----------------- BOT & INTENTS -----------------
+# Bot & Intents configuration
 intents = discord.Intents.default()
 intents.message_content = True
 intents.reactions = True
@@ -90,11 +91,11 @@ intents.members = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 MODOS_CACHE = carregar_modos()
 
+# Periodic backup task
 @tasks.loop(hours=1)
 async def backup_task():
     logger.info("Iniciando backup...")
     try:
-        # Executa em thread separada
         await asyncio.to_thread(sync_file_to_drive, CAMINHO_MODOS, "modos.json")
         await asyncio.to_thread(sync_file_to_drive, CAMINHO_IDIOMAS, "idiomas.json")
         await asyncio.to_thread(sync_file_to_drive, CONFIG_PATH, "config_debug.json")
@@ -107,7 +108,7 @@ async def before_backup():
     logger.debug("Aguardando o bot ligar para iniciar o loop de backup.")
     await bot.wait_until_ready()
 
-# ----------------- VARIÁVEIS GLOBAIS -----------------
+# Global state variables
 mensagem_idioma_id = {}
 mensagem_voltar_ids = {}
 mensagem_avancar_ids = {}
@@ -121,7 +122,7 @@ modo_atual = {}
 resposta_enviada = set()
 MODOS_CACHE = carregar_modos()
 
-# ----------------- FLUXO DE EMBEDS -----------------
+# Flow navigation mapping
 flow = {
     "get_language_embed": {
         "next": "get_greeting_embed",
@@ -309,7 +310,7 @@ flow = {
     }
 }
 
-# ----------------- MAPEAMENTO ESTADO ↔ EMBED -----------------
+# State to embed mapping
 estado_to_embed = {
     "idioma": "get_language_embed",
     "apresentacao": "get_greeting_embed",
@@ -354,7 +355,7 @@ estado_to_embed = {
 
 embed_to_estado = {v: k for k, v in estado_to_embed.items()}
 
-# ----------------- DICIONÁRIO DE EMBEDS -----------------
+# Embed functions dictionary
 EMBEDS = {
     "get_language_embed": get_language_embed,
     "get_greeting_embed": get_greeting_embed,
@@ -397,8 +398,7 @@ EMBEDS = {
     "get_switch_not_found_embed": get_switch_not_found_embed,
 }
 
-# ----------------- FUNÇÕES AUXILIARES -----------------
-# Esta linha foi removida porque já é carregada no módulo idiomas
+# Helper functions
 logger.debug("[INIT] Módulo de idiomas inicializado")
 
 def push_embed(user_id, estado, *args):
@@ -411,7 +411,6 @@ def inicializar_estado_usuario(guild_id, user_id):
     
     user_progress[guild_id][user_id] = "get_greeting_embed"
     
-    # Limpa qualquer estado anterior residual
     criando_modo.pop(user_id, None)
     modo_ids.pop(user_id, None)
     historico_embeds.pop(user_id, None)
@@ -465,7 +464,7 @@ async def limpar_mensagens(canal, autor1, autor2, quantidade=50):
 
 async def limpar_mensagem_user(canal, quantidade=50):
     def check(msg):
-        return not msg.pinned  # Não deleta mensagens fixadas
+        return not msg.pinned
     
     mensagens_deletadas = 0
     try:
@@ -493,12 +492,11 @@ async def enviar_embed(canal, user_id, embed):
     except Exception as e:
         logger.debug(f"[EMBED] Erro ao enviar embed para user={user_id}, canal={canal}: {e}")
 
-# ---------- FUNÇÃO DE AVANÇAR ----------
+# Flow navigation logic
 async def go_next(canal, user_id, guild_id, resultado=None):
     logger.debug(f"[FLOW] go_next iniciado | user={user_id}, guild={guild_id}, resultado={resultado}")
     logger.debug(f"[FLOW] Estado atual: {user_progress.get(guild_id, {}).get(user_id)}")
 
-    # Garante que o usuário/servidor tem estado inicializado
     if guild_id not in user_progress:
         user_progress[guild_id] = {}
     
@@ -509,7 +507,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
     idioma = obter_idioma(guild_id)
     extra_args = ()
 
-    # ---------- TRATAMENTO ESPECIAL PARA TUPLAS ----------
+    # Handle tuple results
     if isinstance(resultado, tuple):
         logger.debug(f"[FLOW] Processando resultado como tupla: {resultado}")
         func_name, *extra_args = resultado
@@ -526,12 +524,10 @@ async def go_next(canal, user_id, guild_id, resultado=None):
             logger.error(f"[FLOW] Erro ao gerar embed {func_name}: {e}")
             return
 
-        # Limpar e enviar mensagem
         membro = canal.guild.get_member(user_id)
         await limpar_mensagens(canal, membro, bot.user)
         msg = await canal.send(embed=embed)
 
-        # Adicionar reações baseadas no flow
         flow_config = flow.get(func_name, {})
         if flow_config.get("back"):
             await msg.add_reaction("🔙")
@@ -540,7 +536,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
             await msg.add_reaction("✅")
             logger.debug(f"[FLOW] Reação ✅ adicionada para {func_name}")
 
-        # Atualizar estados
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
         user_progress.setdefault(guild_id, {})[user_id] = func_name
@@ -548,7 +543,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         logger.debug(f"[FLOW] Tupla {func_name} processada com sucesso")
         return
 
-    # ---------- LÓGICA NORMAL ----------
+    # Normal navigation logic
     current = user_progress.get(guild_id, {}).get(user_id)
     if not current:
         logger.debug("[FLOW] Nenhum estado atual encontrado")
@@ -558,7 +553,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
     next_step = flow[current].get("next")
     logger.debug(f"[FLOW] Próximo passo do flow: {next_step}")
 
-    # Determinar próximo embed
     if isinstance(next_step, list):
         next_embed_name = resultado if (resultado and resultado in next_step) else next_step[0]
     else:
@@ -575,7 +569,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         logger.error(f"[FLOW] Embed {next_embed_name} não encontrado")
         return
 
-    # Gerar embed
     logger.debug(f"[FLOW] Gerando embed: {next_embed_name}")
     embed = None
     try:
@@ -605,22 +598,17 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         logger.error(f"[FLOW] Erro ao gerar embed {next_embed_name}: {e}")
         return
 
-    # Atualizar estados
     user_progress[guild_id][user_id] = next_embed_name
     push_embed(user_id, next_embed_name, *extra_args)
 
-    # Limpar e enviar mensagem
     membro = canal.guild.get_member(user_id)
     await limpar_mensagens(canal, membro, bot.user)
     msg = await canal.send(embed=embed)
     logger.debug(f"[FLOW] Embed {next_embed_name} enviado")
 
-    # Lógica de reações mais específica
     flow_config = flow.get(next_embed_name, {})
     
-    # Identificar corretamente os embeds de warning
     if next_embed_name in ["get_channel_conflict_warning_embed", "get_channel_removed_warning_embed"]:
-        # Estes embeds só devem ter a reação de voltar
         await msg.add_reaction("🔙")
         logger.debug(f"[FLOW] Reação 🔙 adicionada para {next_embed_name} (warning - SEM ✅)")
     
@@ -632,7 +620,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         await msg.add_reaction("🔙")
         logger.debug(f"[FLOW] Reação 🔙 adicionada para {next_embed_name}")
     
-    # Recepção tem reações especiais
     elif next_embed_name == "get_reception_mode_question_embed":
         try:
             await msg.add_reaction("🔙")
@@ -642,7 +629,6 @@ async def go_next(canal, user_id, guild_id, resultado=None):
         except Exception as e:
             logger.warning(f"[FLOW] Não foi possível adicionar reações de recepção: {e}")
     
-    # Para outros embeds, seguir o flow normalmente
     else:
         if flow_config.get("back"):
             await msg.add_reaction("🔙")
@@ -651,7 +637,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
             await msg.add_reaction("✅")
             logger.debug(f"[FLOW] Reação ✅ adicionada para {next_embed_name}")
 
-    # Atualizar estados específicos
+    # State specific updates
     if current == "get_name_saved_embed":
         criando_modo[user_id] = "selecionando_cargo"
         logger.debug(f"[FLOW] Estado atualizado: selecionando_cargo")
@@ -678,6 +664,7 @@ async def go_next(canal, user_id, guild_id, resultado=None):
 
     logger.debug(f"[FLOW] go_next concluído | user={user_id}, next={next_embed_name}")
 
+# Finalize flow process
 async def finalizar_modo_fluxo(canal, user_id, guild_id, idioma):
     logger.debug(f"[FLOW] Finalizando modo | user={user_id}, guild={guild_id}")
     
@@ -708,7 +695,6 @@ async def finalizar_modo_fluxo(canal, user_id, guild_id, idioma):
         await limpar_mensagens(canal, membro, bot.user)
         msg = await canal.send(embed=embed)
         
-        # Adicionar reação de voltar para o embed final
         await msg.add_reaction("🔙")
         
         user_progress.setdefault(guild_id, {})[user_id] = "get_finish_mode_embed"
@@ -717,7 +703,7 @@ async def finalizar_modo_fluxo(canal, user_id, guild_id, idioma):
     except Exception as e:
         logger.error(f"[FLOW] Falha ao enviar embed final: {e}")
 
-# ---------- FUNÇÃO DE VOLTAR ----------
+# Back navigation logic
 async def go_back(canal, user_id, guild_id):
     logger.debug(f"[FLOW] go_back iniciado | user={user_id}, guild={guild_id}")
 
@@ -729,7 +715,6 @@ async def go_back(canal, user_id, guild_id):
     logger.debug(f"[FLOW] Estado atual: {current}")
     idioma = obter_idioma(guild_id)
 
-    # Determinar embed anterior
     back_embed = flow[current].get("back")
     logger.debug(f"[FLOW] Embed anterior do flow: {back_embed}")
 
@@ -737,7 +722,6 @@ async def go_back(canal, user_id, guild_id):
         logger.debug("[FLOW] Nenhum embed anterior definido")
         return
 
-    # Tratamento especial para exclusão
     if back_embed == "get_delete_mode_embed":
         criando_modo[user_id] = "apagando_modo"
         logger.debug("[DELETE] Retornando para lista de modos para apagar")
@@ -747,7 +731,6 @@ async def go_back(canal, user_id, guild_id):
         logger.error(f"[FLOW] Embed {back_embed} não encontrado")
         return
 
-    # Gerar embed anterior
     logger.debug(f"[FLOW] Gerando embed anterior: {back_embed}")
     embed = None
     try:
@@ -765,7 +748,6 @@ async def go_back(canal, user_id, guild_id):
         elif back_embed == "get_edit_embed":
             embed = embed_func(guild_id, idioma)
         elif back_embed == "get_delete_mode_embed":
-            # Adicionar parâmetro modos_existentes
             modos = carregar_modos().get(str(guild_id), {}).get("modos", {})
             embed = embed_func(idioma, modos)
         else:
@@ -776,20 +758,17 @@ async def go_back(canal, user_id, guild_id):
         logger.error(f"[FLOW] Erro ao gerar embed {back_embed}: {e}")
         return
 
-    # Limpar e enviar mensagem
     membro = canal.guild.get_member(user_id)
     await limpar_mensagens(canal, membro, bot.user)
     msg = await canal.send(embed=embed)
     logger.debug(f"[FLOW] Embed {back_embed} enviado")
 
-    # Adicionar reações APENAS se definidas no flow
     flow_config = flow.get(back_embed, {})
 
     if back_embed == "get_delete_mode_embed":
         await msg.add_reaction("🔙")
         logger.debug(f"[FLOW] Reação 🔙 adicionada para {back_embed} (exclusão)")
     else:
-        # Para outros embeds, seguir o flow normalmente
         if flow_config.get("back"):
             await msg.add_reaction("🔙")
             logger.debug(f"[FLOW] Reação 🔙 adicionada para {back_embed}")
@@ -797,26 +776,26 @@ async def go_back(canal, user_id, guild_id):
             await msg.add_reaction("✅")
             logger.debug(f"[FLOW] Reação ✅ adicionada para {back_embed}")
 
-    # Atualizar estados
+# Update user state
     user_progress.setdefault(guild_id, {})[user_id] = back_embed
     
-    # Atualizar criando_modo baseado no embed
+    # Update mode creation state based on embed
     estado_correspondente = embed_to_estado.get(back_embed)
     if estado_correspondente:
         criando_modo[user_id] = estado_correspondente
         logger.debug(f"[FLOW] criando_modo atualizado para: {estado_correspondente}")
 
-    # Limpar histórico duplicado
+    # Clean duplicate history
     if user_id in historico_embeds:
         historico_embeds[user_id] = [
             (e, a) for e, a in historico_embeds[user_id] 
             if e != back_embed and e != current
         ]
 
-    # Adicionar ao histórico
+    # Add to history
     push_embed(user_id, back_embed)
 
-    # Tratamentos especiais
+    # Special state handling
     if back_embed == "get_setup_embed":
         logger.debug(f"[FLOW] Retornando para setup - resetando estado")
         reset_edicao(guild_id, user_id)
@@ -830,6 +809,7 @@ async def go_back(canal, user_id, guild_id):
     logger.debug(f"[FLOW] go_back concluído | user={user_id}, back={back_embed}")
 
 async def apagar_modo_completo(guild_id, modo_id):
+    # Full mode deletion including channel resets
     try:
         logger.debug(f"[DELETE] Iniciando apagamento completo do modo {modo_id} no servidor {guild_id}")
         
@@ -843,13 +823,13 @@ async def apagar_modo_completo(guild_id, modo_id):
         modo = modos[guild_id_str]["modos"][modo_id]
         modo_nome = modo.get("nome", "Desconhecido")
         
-        # Obter a guild
+        # Get guild instance
         guild = bot.get_guild(guild_id)
         if not guild:
             logger.error(f"[DELETE] Guild {guild_id} não encontrada")
             return False
 
-        # Resetar permissões dos canais antes de apagar o modo
+        # Prepare channel reset data
         canais_para_resetar = modo.get("channels", [])
         cargo_id = modo.get("roles", [None])[0] if modo.get("roles") else None
         cargo = guild.get_role(int(cargo_id)) if cargo_id else None
@@ -859,13 +839,13 @@ async def apagar_modo_completo(guild_id, modo_id):
         canais_resetados = 0
         erros_reset = []
         
+        # Reset each channel
         for canal_data in canais_para_resetar:
             try:
                 canal_id = int(canal_data.id) if hasattr(canal_data, "id") else int(canal_data)
                 canal = guild.get_channel(canal_id)
                 
                 if canal:
-                    # Resetar permissões do canal
                     sucesso = await resetar_permissoes_canal(canal, cargo)
                     if sucesso:
                         canais_resetados += 1
@@ -880,7 +860,7 @@ async def apagar_modo_completo(guild_id, modo_id):
                 erros_reset.append(erro_msg)
                 logger.error(f"[DELETE] Erro ao resetar canal {canal_id}: {e}")
 
-        # Agora apaga o modo usando a função existente
+        # Delete mode entry from data
         sucesso_apagar = apagar_modo(guild_id, modo_id)
         
         if sucesso_apagar:
@@ -897,8 +877,9 @@ async def apagar_modo_completo(guild_id, modo_id):
         return False
 
 async def resetar_permissoes_canal(canal, cargo=None):
+    # Restore default channel permissions
     try:
-        # Remover permissões específicas do cargo do modo, se existir
+        # Clear specific role overwrites
         if cargo:
             try:
                 await canal.set_permissions(cargo, overwrite=None)
@@ -906,7 +887,7 @@ async def resetar_permissoes_canal(canal, cargo=None):
             except Exception as e:
                 logger.warning(f"[DELETE] Não foi possível remover permissões do cargo {cargo.name}: {e}")
 
-        # Para um reset mais completo, definir permissões básicas para @everyone
+        # Apply basic default overwrites for @everyone
         overwrites = {
             canal.guild.default_role: discord.PermissionOverwrite(
                 view_channel=True,
@@ -917,7 +898,6 @@ async def resetar_permissoes_canal(canal, cargo=None):
             )
         }
         
-        # Aplicar as novas permissões
         await canal.edit(overwrites=overwrites)
         logger.debug(f"[DELETE] Canal {canal.name} resetado para permissões padrão")
         return True
@@ -932,11 +912,12 @@ async def resetar_permissoes_canal(canal, cargo=None):
         logger.error(f"[DELETE] Erro inesperado ao resetar canal {canal.name}: {e}")
         return False
 
-# ----------------- EVENTOS -----------------
+# Events
 CAMINHO_MAIN = None
 CAMINHO_PROJETO = None
 
 def obter_caminho_main():
+    # Store project root and main script paths
     global CAMINHO_MAIN, CAMINHO_PROJETO
     caminho_atual = os.path.abspath(__file__)
     CAMINHO_MAIN = caminho_atual
@@ -948,6 +929,7 @@ def obter_caminho_main():
     return CAMINHO_MAIN, CAMINHO_PROJETO
 
 def obter_caminho_arquivo(caminho_relativo):
+    # Resolve relative paths to absolute project paths
     if CAMINHO_PROJETO is None:
         raise RuntimeError("Caminho do projeto não foi inicializado. Execute obter_caminho_main() primeiro.")
     
@@ -958,6 +940,7 @@ def obter_caminho_arquivo(caminho_relativo):
 
 @bot.event
 async def on_ready():
+    # Bot initialization on ready
     try:
         configurar_logger()
         carregar_config()
@@ -972,6 +955,7 @@ async def on_ready():
     verificar_arquivo_idiomas()
     logger.info(f'Usuário conectado: {bot.user}! | Prefix usado: {PREFIX}')
     
+    # Start background backup task
     if not backup_task.is_running():
         try:
             backup_task.start()
@@ -981,9 +965,8 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild):
+    # Language selection on guild join
     logger.info(f"Bot entrou no servidor: {guild.name} (ID: {guild.id})")
-
-    # garante que o servidor tem uma entrada no sistema de idiomas
     obter_idioma(guild.id)
     
     for channel in guild.text_channels:
@@ -991,7 +974,6 @@ async def on_guild_join(guild):
             try:
                 logger.debug(f"Enviando embed de idioma no canal: {channel.name} ({channel.id})")
                 
-                # Usa inglês como padrão inicial para a mensagem de idioma
                 embed = get_language_embed("en", guild)
                 msg = await channel.send(embed=embed)
                 await msg.add_reaction("🇺🇸")
@@ -1007,6 +989,7 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_member_join(member):
+    # Auto-role assignment on member join
     guild = member.guild
     guild_id = str(guild.id)
     server_modos = carregar_modos().get(guild_id, {}).get("modos", {})
@@ -1027,9 +1010,9 @@ async def on_member_join(member):
 
 @bot.event
 async def on_raw_reaction_add(payload):
+    # Global reaction handler
     logger.debug(f"[EVENT] on_raw_reaction_add: user={payload.user_id}, emoji={payload.emoji.name}, guild={payload.guild_id}, channel={payload.channel_id}")
 
-    # Ignora reações do próprio bot
     if payload.user_id == bot.user.id:
         return
 
@@ -1046,16 +1029,16 @@ async def on_raw_reaction_add(payload):
 
     logger.debug(f"[TRACE] Reação adicionada por {user_id} em guild {guild_id} | Emoji: {payload.emoji.name} | Current: {current}")
 
-    # --- TRATAMENTO ESPECIAL: confirmação do LOG ---
+    # Log info confirmation
     if current == "get_log_info_embed" and payload.emoji.name == "✅":
         logger.debug(f"[LOG] Avançando de info para confirm | user={user_id}")
 
-        # Limpeza básica antes de avançar
+        # Basic cleanup
         finalizar_modos_em_edicao(guild_id, user_id)
         limpar_modos_usuario(guild_id, user_id)
         limpar_modos_incompletos(guild_id)
 
-        # Tenta apagar a mensagem anterior (onde estava o embed de info)
+        # Delete previous message
         try:
             msg_antiga = await canal.fetch_message(payload.message_id)
             await msg_antiga.delete()
@@ -1063,7 +1046,7 @@ async def on_raw_reaction_add(payload):
         except Exception as e:
             logger.warning(f"[LOG] Não foi possível apagar a mensagem anterior: {e}")
 
-        # Carrega config atual e envia embed mostrando o estado real do log
+        # Send confirmation embed
         config = carregar_config()
         debug_logs = config.get("debug_logs", False)
 
@@ -1079,19 +1062,19 @@ async def on_raw_reaction_add(payload):
         user_progress[guild_id][user_id] = "get_log_confirm_embed"
         return
 
-    # --- CONFIRMAÇÃO DO ESTADO DE LOG ---
+    # Log state confirmation
     if current == "get_log_confirm_embed":
         member = guild.get_member(user_id)
         if not member or not member.guild_permissions.manage_guild:
             logger.warning(f"[LOG] Usuário {user_id} sem permissão para alterar logs em guild {guild_id}")
             return
 
-        # Ativar logs
+        # Enable logs
         if payload.emoji.name == "✅":
             try:
                 config = carregar_config()
                 config["debug_enabled"] = True
-                config["debug_logs"] = True  # sincroniza
+                config["debug_logs"] = True  
                 salvar_config(config)
                 configurar_logger()
                 logger.info(f"[LOG] Debug mode ATIVADO via fluxo pelo usuário {user_id} no servidor {guild_id}")
@@ -1101,12 +1084,12 @@ async def on_raw_reaction_add(payload):
             await go_next(canal, user_id, guild_id, resultado="get_log_activated_embed")
             return
 
-        # Desativar logs
+        # Disable logs
         if payload.emoji.name == "❌":
             try:
                 config = carregar_config()
                 config["debug_enabled"] = False
-                config["debug_logs"] = False  # sincroniza
+                config["debug_logs"] = False  
                 salvar_config(config)
                 configurar_logger()
                 logger.info(f"[LOG] Debug mode DESATIVADO via fluxo pelo usuário {user_id} no servidor {guild_id}")
@@ -1116,7 +1099,7 @@ async def on_raw_reaction_add(payload):
             await go_next(canal, user_id, guild_id, resultado="get_log_deactivated_embed")
             return
 
-    # -------------------- SELEÇÃO DE IDIOMA --------------------
+    # Language selection
     if str(guild_id) in mensagem_idioma_id and mensagem_idioma_id[str(guild_id)] == payload.message_id:
         logger.debug(f"[IDIOMA] Reação de idioma detectada: {payload.emoji.name} por {user_id}")
         
@@ -1133,7 +1116,7 @@ async def on_raw_reaction_add(payload):
             return
 
         try:
-            # Remove a reação do usuário
+            # Remove reaction
             msg = await canal.fetch_message(payload.message_id)
             await msg.remove_reaction(payload.emoji, payload.member)
             logger.debug(f"[IDIOMA] Reação removida da mensagem")
@@ -1141,23 +1124,23 @@ async def on_raw_reaction_add(payload):
             logger.debug(f"[IDIOMA] Não foi possível remover reação: {e}")
 
         try:
-            # Deleta a mensagem de idioma
+            # Delete message
             await msg.delete()
             logger.debug(f"[IDIOMA] Mensagem de idioma deletada")
             
-            # INICIALIZA O ESTADO DO USUÁRIO
+            # Initialize state
             if guild_id not in user_progress:
                 user_progress[guild_id] = {}
             user_progress[guild_id][user_id] = "get_greeting_embed"
             
-            # Envia o embed de greeting
+            # Send greeting
             embed_greeting = get_greeting_embed(idioma)
             msg_greeting = await canal.send(embed=embed_greeting)
             
-            # Adiciona reação para avançar
+            # Add reaction
             await msg_greeting.add_reaction("✅")
             
-            # Atualiza IDs para navegação
+            # Update IDs
             mensagem_avancar_ids[str(guild_id)] = msg_greeting.id
             
             logger.debug(f"[IDIOMA] Embed de greeting enviado com sucesso")
@@ -1166,11 +1149,11 @@ async def on_raw_reaction_add(payload):
             logger.error(f"[IDIOMA] Erro no processamento pós-seleção: {e}", exc_info=True)
         return
     
-    # -------------------- VOLTAR --------------------
+    # Back navigation
     if payload.emoji.name == "🔙":
         logger.debug(f"[NAVEGAÇÃO] Usuário {user_id} reagiu com 🔙 em guild {guild_id}")
         
-        # --- VOLTAR NA CONFIRMAÇÃO DE EXCLUSÃO ---
+        # Delete confirmation back
         if current == "get_delete_confirm_embed":
             logger.debug(f"[DELETE] Usuário {user_id} voltou da confirmação para lista de modos")
             modo_ids.pop(user_id, None)
@@ -1181,13 +1164,13 @@ async def on_raw_reaction_add(payload):
         await go_back(canal, user_id, guild_id)
         return
 
-    # -------------------- TROCA DE MODO - FLOW SIMPLES --------------------
+    # Switch mode navigation
     if payload.emoji.name == "🔙" and current in ["get_switch_success_embed", "get_switch_error_embed", "get_switch_not_found_embed"]:
         logger.debug(f"[FLOW] Reação 🔙 detectada para {current} - seguindo flow")
         await go_back(canal, user_id, guild_id)
         return
 
-    # -------------------- AVANÇAR --------------------
+    # Next navigation
     elif payload.emoji.name == "✅":
         logger.debug(f"[NAVEGAÇÃO] Reação de AVANÇAR detectada | user={user_id} | current={current}")
 
@@ -1197,12 +1180,12 @@ async def on_raw_reaction_add(payload):
             await go_next(canal, user_id, guild_id)
             return
         
-    # -------------------- CONFIRMAÇÃO DE EXCLUSÃO --------------------
+    # Delete mode confirmation
     if current == "get_delete_confirm_embed":
         modo_id = modo_ids.get(user_id)
         
         if payload.emoji.name == "✅":
-            # Confirmar exclusão
+            # Confirm delete
             if modo_id:
                 modos = carregar_modos()
                 modo_nome = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id, {}).get("nome", "Desconhecido")
@@ -1219,7 +1202,7 @@ async def on_raw_reaction_add(payload):
                 logger.warning(f"[DELETE] Nenhum modo_id encontrado para confirmação")
                 await go_next(canal, user_id, guild_id, resultado="get_delete_error_embed")
             
-            # Limpa estado
+            # Clean state
             modo_ids.pop(user_id, None)
             criando_modo.pop(user_id, None)
             return
@@ -1241,7 +1224,7 @@ async def on_raw_reaction_add(payload):
             cargo_antigo_id, novo_cargo_id = substituir_cargo(modos, guild_id, modo_id, novo_cargo_id)
             logger.debug(f"[RECEPÇÃO] Cargo antigo: {cargo_antigo_id} | Novo cargo: {novo_cargo_id}")
 
-            # Normalizar canais
+            # Normalize channels
             raw_canais = modo.get("channels", []) or []
             canais_existentes = []
             for c in raw_canais:
@@ -1256,7 +1239,7 @@ async def on_raw_reaction_add(payload):
 
             logger.debug(f"[RECEPÇÃO] Canais normalizados: {canais_existentes}")
 
-            # Validar canais
+            # Validate channels
             try:
                 canais_existentes_no_modo_atual = modo.get("channels", []) or []
                 canais_validos, canais_invalidos = validar_canais(guild, canais_existentes, canais_existentes_no_modo_atual)
@@ -1294,7 +1277,7 @@ async def on_raw_reaction_add(payload):
 
             novo_role = guild.get_role(novo_cargo_id) if novo_cargo_id else None
 
-            # Pega canais válidos como objetos
+            # Get valid channels objects
             canais_validos = []
             for cid in raw_canais:
                 ch = guild.get_channel(int(cid))
@@ -1305,7 +1288,7 @@ async def on_raw_reaction_add(payload):
 
             recepcao_anterior = None
             
-            # Atualiza recepção apenas se tiver cargo e canais
+            # Update reception if role and channels exist
             if novo_role and canais_validos:
                 try:
                     for ch in canais_validos:
@@ -1320,16 +1303,16 @@ async def on_raw_reaction_add(payload):
                             criando_modo_dict=criando_modo
                         )
 
-                    # Marca este modo como recepção e desmarca os demais
+                    # Mark mode as reception
                     for mid, mdata in modos[str(guild_id)]["modos"].items():
                         mdata["recepcao"] = False
                     modos[str(guild_id)]["modos"][modo_id]["recepcao"] = True
 
-                    # Salva modos atualizado
+                    # Save updated modes
                     salvar_modos(modos)
                     MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = modos[str(guild_id)]["modos"][modo_id]
 
-                    # Aplica recepção de fato
+# Apply reception settings
                     recepcao_anterior = await atribuir_recepcao(
                         guild,
                         modo_id,
@@ -1345,7 +1328,7 @@ async def on_raw_reaction_add(payload):
                 recepcao_anterior = None
                 logger.info(f"[RECEPÇÃO] Nenhum cargo ou canal válido — recepção permanece inalterada")
 
-            # Próximo passo com embed
+            # Navigation with embed results
             if recepcao_anterior:
                 old_role_id = modos.get(str(guild_id), {}).get("modos", {}).get(recepcao_anterior, {}).get("roles", [None])[0]
                 old_role = guild.get_role(int(old_role_id)) if old_role_id else None
@@ -1356,7 +1339,7 @@ async def on_raw_reaction_add(payload):
                 logger.debug(f"[RECEPÇÃO] Nova recepção atribuída: {novo_role.name if novo_role else 'N/A'}")
                 await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", novo_role.name if novo_role else "N/A"))
             
-            # Marcar modo como finalizado corretamente
+            # Finalize mode status and save
             try:
                 modo = modos[str(guild_id)]["modos"][modo_id]
                 if modo.get("finalizado"):
@@ -1368,7 +1351,7 @@ async def on_raw_reaction_add(payload):
                     MODOS_CACHE[str(guild_id)]["modos"][modo_id] = modo
                     logger.info(f"[CRIAÇÃO] Modo {modo_id} marcado como finalizado com sucesso")
 
-                    # Limpar backup
+                    # Clear user backup
                     if 'backup_data' in criando_modo and user_id in criando_modo['backup_data']:
                         del criando_modo['backup_data'][user_id]
                         logger.debug(f"[BACKUP] Backup limpo para usuário {user_id}")
@@ -1376,7 +1359,7 @@ async def on_raw_reaction_add(payload):
             except Exception as e:
                 logger.exception(f"[WARN] Falha ao marcar modo {modo_id} como finalizado: {e}")
 
-            # Resetar flag em_edicao
+            # Reset edition flag
             try:
                 modos[str(guild_id)]["modos"][modo_id]["em_edicao"] = False
                 salvar_modos(modos)
@@ -1389,7 +1372,7 @@ async def on_raw_reaction_add(payload):
             await go_next(canal, user_id, guild_id)
             logger.debug(f"[NAVEGAÇÃO] Avançando para o próximo passo após reação ✅ para user_id={user_id}")
     
-    # -------------------- AVANÇAR (continuação) --------------------
+    # Navigation confirmation logic
     elif payload.emoji.name == "✅":
         if current == "get_mode_selected_embed":
             logger.debug(f"[CRIAÇÃO] Usuário {user_id} confirmou seleção de modo — aguardando nome")
@@ -1413,7 +1396,7 @@ async def on_raw_reaction_add(payload):
             cargo_antigo_id, novo_cargo_id = substituir_cargo(modos, guild_id, modo_id, novo_cargo_id)
             logger.debug(f"[RECEPÇÃO] Substituição de cargo concluída: antigo={cargo_antigo_id}, novo={novo_cargo_id}")
 
-            # Normalizar canais
+            # Normalize channel list
             raw_canais = modo.get("channels", []) or []
             canais_existentes = []
             for c in raw_canais:
@@ -1427,7 +1410,7 @@ async def on_raw_reaction_add(payload):
                 canais_existentes.append(str(cid))
             logger.debug(f"[RECEPÇÃO] Canais normalizados para o modo {modo_id}: {canais_existentes}")
 
-            # Validar canais
+            # Validate channels and handle errors
             try:
                 canais_existentes_no_modo_atual = modo.get("channels", []) or []
                 canais_validos, canais_invalidos = validar_canais(guild, canais_existentes, canais_existentes_no_modo_atual)
@@ -1448,6 +1431,7 @@ async def on_raw_reaction_add(payload):
                 else:
                     canais_removidos.append(cid)
 
+            # Handle removed or conflicting channels
             if canais_removidos:
                 logger.info(f"[WARN] Canais removidos detectados: {canais_removidos}")
                 embed = get_channel_removed_warning_embed(idioma, canais_removidos)
@@ -1465,7 +1449,7 @@ async def on_raw_reaction_add(payload):
 
             novo_role = guild.get_role(novo_cargo_id) if novo_cargo_id else None
 
-            # Pega canais válidos como objetos
+            # Resolve valid channel objects
             canais_validos = []
             for cid in raw_canais:
                 ch = guild.get_channel(int(cid))
@@ -1475,10 +1459,9 @@ async def on_raw_reaction_add(payload):
 
             recepcao_anterior = None
             
-            # Atualiza recepção apenas se tiver cargo e canais
+            # Update permissions and set main reception
             if novo_role and canais_validos:
                 try:
-                    # Atualiza permissões
                     for ch in canais_validos:
                         success = await atualizar_permissoes_canal(
                             ch, 
@@ -1492,17 +1475,15 @@ async def on_raw_reaction_add(payload):
                         )
                     logger.info(f"[RECEPÇÃO] Permissões atualizadas para cargo '{novo_role.name}' em {len(canais_validos)} canais")
 
-                    # Marca este modo como recepção e desmarca os demais
                     for mid, mdata in modos[str(guild_id)]["modos"].items():
                         mdata["recepcao"] = False
                     modos[str(guild_id)]["modos"][modo_id]["recepcao"] = True
 
-                    # Salva modos atualizado
                     salvar_modos(modos)
                     MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = modos[str(guild_id)]["modos"][modo_id]
                     logger.info(f"[RECEPÇÃO] Modo {modo_id} definido como recepção principal no servidor {guild.name}")
 
-                    # Aplica recepção de fato
+                    # Final assignment
                     recepcao_anterior = await atribuir_recepcao(
                         guild,
                         modo_id,
@@ -1516,7 +1497,7 @@ async def on_raw_reaction_add(payload):
                 recepcao_anterior = None
                 logger.info(f"[RECEPÇÃO] Nenhum cargo definido — recepção permanece inalterada")
 
-            # Próximo passo com embed
+            # Navigation based on assignment result
             if recepcao_anterior:
                 old_role_id = modos.get(str(guild_id), {}).get("modos", {}).get(recepcao_anterior, {}).get("roles", [None])[0]
                 old_role = guild.get_role(int(old_role_id)) if old_role_id else None
@@ -1527,7 +1508,7 @@ async def on_raw_reaction_add(payload):
                 logger.debug(f"[RECEPÇÃO] Nova recepção atribuída: {novo_role.name if novo_role else 'N/A'}")
                 await go_next(canal, user_id, guild_id, resultado=("get_reception_assigned_embed", novo_role.name if novo_role else "N/A"))
             
-            # Marcar modo como finalizado corretamente
+            # Persist finalized mode state
             try:
                 modo = modos[str(guild_id)]["modos"][modo_id]
                 if modo.get("finalizado"):
@@ -1541,11 +1522,11 @@ async def on_raw_reaction_add(payload):
             except Exception as e:
                 logger.warning(f"[WARN] Falha ao marcar modo {modo_id} como finalizado: {e}", exc_info=True)
 
-            # Limpeza de estado do usuário
+            # Cleanup user session
             resetar_estado_usuario(guild_id, user_id)
             logger.debug(f"[ESTADO] Estado do usuário {user_id} resetado em {guild_id}")
 
-            # Resetar flag em_edicao
+            # Reset edition flag safety
             try:
                 modos[str(guild_id)]["modos"][modo_id]["em_edicao"] = False
                 salvar_modos(modos)
@@ -1555,7 +1536,7 @@ async def on_raw_reaction_add(payload):
                 logger.warning(f"[WARN] Não foi possível resetar 'em_edicao' para modo {modo_id}: {e}", exc_info=True)
 
         elif current == "get_finish_mode_embed": 
-            # RESET o estado do usuário só aqui, depois que todos os embeds finais foram enviados
+            # Final state cleanup
             resetar_estado_usuario(guild_id, user_id)
             logger.debug(f"[ESTADO] Estado do usuário {user_id} resetado (etapa final)")
             return
@@ -1563,14 +1544,14 @@ async def on_raw_reaction_add(payload):
             await go_next(canal, user_id, guild_id)
             logger.debug(f"[NAVEGAÇÃO] Avançando para o próximo passo de {user_id} em {guild_id}")
 
-    # -------------------- RECEPÇÃO REPLACED/SKIPPED --------------------
+    # Reception response handling
     elif current in ("get_reception_replaced_embed", "get_reception_skipped_embed", "get_reception_assigned_embed"):
         logger.debug(f"[RECEPÇÃO] Recepção ({current}) detectada para usuário {user_id} em {guild_id}. Avançando para o próximo passo")
         await go_next(canal, user_id, guild_id)
         logger.info(f"[RECEPÇÃO] Usuário {user_id} avançou após recepção ({current}) em {guild_id}")
         return
     
-    # -------------------- PULAR --------------------
+    # Skip reception logic (X reaction)
     elif payload.emoji.name == "❌" and current == "get_reception_mode_question_embed":
         logger.debug(f"[RECEPÇÃO] Reação ❌ detectada — usuário {user_id}, guilda {guild_id}. Iniciando rotina de pular recepção")
         modo_id = modo_ids.get(user_id)
@@ -1587,7 +1568,8 @@ async def on_raw_reaction_add(payload):
         cargo_id = int(modo["roles"][0]) if modo.get("roles") else None
         role = guild.get_role(cargo_id) if cargo_id else None
 
-        raw_canais = modo.get("channels", [])  # IDs do modo
+        # Normalize channel IDs
+        raw_canais = modo.get("channels", [])
         canais_existentes = []
         for c in raw_canais:
             try:
@@ -1599,9 +1581,9 @@ async def on_raw_reaction_add(payload):
                     continue
             canais_existentes.append(str(cid))
 
-        # Corrigido: definir variável que faltava
         canais_existentes_no_modo_atual = modo.get("channels", []) or []
 
+        # Validate channel availability
         try:
             canais_validos, canais_invalidos = validar_canais(
                 guild,
@@ -1624,6 +1606,7 @@ async def on_raw_reaction_add(payload):
             else:
                 canais_removidos.append(cid)
 
+        # Handle validation warnings
         if canais_removidos:
             logger.warning(f"[WARN] Canais removidos detectados no ❌: {canais_removidos}")
             embed = get_channel_removed_warning_embed(idioma, canais_removidos)
@@ -1639,14 +1622,14 @@ async def on_raw_reaction_add(payload):
             await msg.add_reaction("🔙")
             return
 
-        # Transformar IDs em objetos Channel
+        # Map channel objects
         canais_validos = []
         for cid in raw_canais:
             ch = guild.get_channel(int(cid))
-            if ch:  # só adiciona canais que existem
+            if ch:
                 canais_validos.append(ch)
 
-        # Atualiza permissões do cargo
+        # Update role permissions
         if role and canais_validos:
             try:
                 for ch in canais_validos:
@@ -1664,11 +1647,8 @@ async def on_raw_reaction_add(payload):
             except Exception as e:
                 logger.exception(f"[ERROR] Falha ao atualizar permissões no ❌ (cargo {role.name if role else 'N/A'}) — {e}")
 
-        # Continua o fluxo normal
+        # Finish mode before skipping
         role_name = role.name if role else "N/A"
-        logger.debug(f"[RECEPÇÃO] Fluxo de ❌ concluído para usuário {user_id} ({role_name})")
-
-        # Finalizar corretamente antes de avançar
         try:
             modo = modos[str(guild_id)]["modos"][modo_id]
             if modo.get("finalizado"):
@@ -1682,11 +1662,12 @@ async def on_raw_reaction_add(payload):
         except Exception as e:
             logger.warning(f"[WARN] Falha ao marcar modo {modo_id} como finalizado no skip: {e}")
 
-        # Continua o fluxo normalmente após finalizar
+        # Final skip navigation
         logger.debug(f"[RECEPÇÃO] Avançando fluxo pós-skip (❌) para usuário {user_id} em guilda {guild_id}, role_name={role_name}")
         await go_next(canal, user_id, guild_id, resultado=("get_reception_skipped_embed", role_name))
         logger.debug(f"[RECEPÇÃO] Fluxo de skip (❌) concluído para usuário {user_id}")
 
+# Message event handler
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -1695,41 +1676,39 @@ async def on_message(message):
     user_id = message.author.id
     guild_id = message.guild.id if message.guild else None
     
-    # VERIFICAÇÃO PRIORITÁRIA 1: Bloquear mensagens com # quando não está no fluxo adequado
+    # Priority check: block hashtag messages outside valid flows
     if message.content.startswith("#"):
         current = user_progress.get(guild_id, {}).get(user_id)
         estado = criando_modo.get(user_id)
         
-        # Lista de estados válidos onde # é permitido
+        # Permitted hashtag states
         estados_validos_hashtag = [
-            "get_edit_embed",              # Selecionando modo para editar
-            "get_delete_mode_embed",       # Selecionando modo para apagar
-            "get_switch_mode_list_embed",  # Selecionando modo para trocar
-            "esperando_nome",              # Esperando nome do modo
-            "get_initial_create_embed",    # Na tela inicial de criação
-            "iniciando_edicao",            # Iniciando edição de modo
-            "nome_salvo",                  # Após salvar nome
-            "nome_conflito",               # Conflito de nome
-            "nome_invalido",               # Nome inválido
-            "selecionando_canal"           # Selecionando canal (aceita # para nome de canal)
+            "get_edit_embed",
+            "get_delete_mode_embed",
+            "get_switch_mode_list_embed",
+            "esperando_nome",
+            "get_initial_create_embed",
+            "iniciando_edicao",
+            "nome_salvo",
+            "nome_conflito",
+            "nome_invalido",
+            "selecionando_canal"
         ]
         
-        # Se não está em um estado válido, IGNORAR a mensagem
         if current not in estados_validos_hashtag and estado not in estados_validos_hashtag:
             return
     
-    # VERIFICAÇÃO PRIORITÁRIA 2: SE NÃO É COMANDO E NÃO ESTÁ NO FLUXO ATIVO, IGNORA
+    # Priority check: ignore non-commands outside active flow
     if not message.content.startswith(PREFIX) and user_id not in criando_modo:
         return
 
+    # Language and state initialization
     idioma = obter_idioma(guild_id) if guild_id else "pt"
     estado = criando_modo.get(user_id)
     current = user_progress.get(guild_id, {}).get(user_id)
-    logger.debug(f"[DEBUG] on_message - User: {user_id}, Current: {current}, Content: {message.content}, Estado: {criando_modo.get(user_id)}")
-    logger.debug(f"Mensagem recebida de {message.author} (ID: {user_id}) no servidor {guild_id or 'DM'} | Estado atual: {estado}, Current: {current}")
+    logger.debug(f"[DEBUG] on_message - User: {user_id}, Current: {current}, Content: {message.content}")
 
-    # --- VERIFICAÇÃO PRIORITÁRIA: TROCAR MODO ---
-    # Esta verificação deve vir ANTES das outras para evitar conflitos
+    # Priority check: mode switching
     current = user_progress.get(guild_id, {}).get(user_id)
     if current == "get_switch_mode_list_embed" and message.content.startswith("#"):
         nome_modo = message.content[1:].strip()
@@ -1743,45 +1722,40 @@ async def on_message(message):
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
             await msg.add_reaction("🔙")
-            # Define o estado para a tela de "modo não encontrado"
             if guild_id not in user_progress:
                 user_progress[guild_id] = {}
             user_progress[guild_id][user_id] = "get_switch_not_found_embed"
             return
 
-        # Aplica o modo a todos os membros
+        # Apply mode to server
         sucesso, resultado = await aplicar_modo_servidor(message.guild, modo_id, idioma, bot)
         
         if sucesso:
             embed = get_switch_success_embed(idioma, nome_modo)
-            # Define o estado para a tela de sucesso
             estado_resultado = "get_switch_success_embed"
         else:
             logger.error(f"[TROCAR] Falha ao aplicar modo {nome_modo}: {resultado}")
             embed = get_switch_error_embed(idioma, nome_modo)
-            # Define o estado para a tela de erro
             estado_resultado = "get_switch_error_embed"
 
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
         await msg.add_reaction("🔙")
         
-        # Define o estado apropriado baseado no resultado
         if guild_id not in user_progress:
             user_progress[guild_id] = {}
         user_progress[guild_id][user_id] = estado_resultado
         return
 
-    # --- VERIFICAÇÃO PRIORITÁRIA: ETAPA DE SELEÇÃO DE CANAL ---
+    # Priority check: channel selection step
     if estado == "selecionando_canal":
         logger.debug(f"[CANAL] Processando seleção de canal para user={user_id}")
         
-        # Se a mensagem começa com #, tratar como tentativa de nome de canal
+        # Name-based channel input with #
         if message.content.startswith("#"):
             nome_canal = message.content[1:].strip()
             logger.debug(f"[CANAL] Tentativa de nome de canal com #: '{nome_canal}'")
             
-            # Buscar canal por nome (sem o #)
             canal_encontrado = None
             for ch in message.guild.text_channels + message.guild.voice_channels + message.guild.categories:
                 if ch.name.lower() == nome_canal.lower():
@@ -1800,16 +1774,13 @@ async def on_message(message):
                 await msg.add_reaction("🔙")
                 mensagem_voltar_ids[str(guild_id)] = msg.id
                 criando_modo[user_id] = "canal_invalido"
-                
-                # Garantir que volte para seleção de canal
                 push_embed(user_id, "get_channel_select_embed")
                 return
         else:
-            # Processar menções de canal ou outros formatos
+            # Handle channel mentions or plain name
             channels = list(message.channel_mentions)
             content_lower = message.content.lower()
 
-            # Buscar canais por nome (para mensagens sem #)
             for ch in message.guild.text_channels + message.guild.voice_channels + message.guild.categories:
                 if ch.name.lower() == content_lower:
                     channels.append(ch)
@@ -1824,16 +1795,13 @@ async def on_message(message):
                 await msg.add_reaction("🔙")
                 mensagem_voltar_ids[str(guild_id)] = msg.id
                 criando_modo[user_id] = "canal_invalido"
-                
-                # Garantir que volte para seleção de canal
                 push_embed(user_id, "get_channel_select_embed")
                 return
 
-        # Validação de canais removidos
+        # Check for removed channels
         canais_removidos = [str(ch.id) for ch in channels if not message.guild.get_channel(ch.id)]
         if canais_removidos:
             logger.debug(f"[VALIDATION] Canais removidos detectados: {canais_removidos}")
-        
             embed = get_channel_removed_warning_embed(idioma, canais_removidos)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
@@ -1841,12 +1809,10 @@ async def on_message(message):
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
             criando_modo[user_id] = "erro_canal"
-            
-            # Garantir que volte para seleção de canal
             push_embed(user_id, "get_channel_select_embed")
             return
 
-        # Validação de conflito
+        # Conflict check for new modes
         canais_conflito = []
         if not em_edicao.get(user_id, False):
             canais_usados = []
@@ -1865,18 +1831,17 @@ async def on_message(message):
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
             criando_modo[user_id] = "erro_canal"
-            
-            # Garantir que volte para seleção de canal
             push_embed(user_id, "get_channel_select_embed")
             return
 
-        # Se chegou aqui, canais são válidos
+        # Persist valid channel selection
         salvar_channels_modo(guild_id, modo_ids[user_id], channels)
         modos = carregar_modos()
         MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_ids[user_id]] = modos[str(guild_id)]["modos"][modo_ids[user_id]]
         salvar_modos(modos)
         logger.debug(f"[CANAL] Canais salvos: {[ch.name for ch in channels]}")
 
+        # Send confirmation and update state
         embed = get_channel_saved_embed(idioma, ", ".join([ch.name for ch in channels]))
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
@@ -1888,25 +1853,24 @@ async def on_message(message):
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
         criando_modo[user_id] = "canal_salvo"
-        logger.debug(f"[STATE] Canais do usuário {user_id} salvos com sucesso. user_progress atualizado para 'get_channel_saved_embed'.")
         return
 
-    # --- NOVA VERIFICAÇÃO: Ignorar mensagens com # no get_mode_selected_embed ---
+    # Skip name input in specific views
     if current == "get_mode_selected_embed" and message.content.startswith("#"):
         logger.debug("[SKIP] Ignorando mensagem de nome dentro de get_mode_selected_embed.")
         return
 
-    # --- VERIFICAÇÃO EXISTENTE: Ignorar mensagens com # no get_create_embed ---
     if current == "get_create_embed" and message.content.startswith("#"):
         logger.debug("[SKIP] Ignorando mensagem de nome dentro de get_create_embed.")
         return
 
+    # Initialize guild data
     dados = carregar_modos()
     if guild_id and str(guild_id) not in dados:
         dados[str(guild_id)] = {"modos": {}}
         logger.info(f"Novo registro criado para guilda {guild_id} em 'dados'.")
         
-    # -------------------- ETAPA EDIÇÃO (get_edit_embed) --------------------
+    # Handling mode edition (get_edit_embed)
     current = user_progress.get(guild_id, {}).get(user_id)
     if current == "get_edit_embed" and message.content.startswith("#"):
         nome_modo = message.content[1:].strip()
@@ -1925,22 +1889,16 @@ async def on_message(message):
             criando_modo[user_id] = "erro_iniciacao_edicao"
             return
 
-        # FAZER BACKUP ANTES DE QUALQUER OUTRA OPERAÇÃO
+        # Backup creation before edition
         modos = carregar_modos()
         modo_antigo = modos.get(str(guild_id), {}).get("modos", {}).get(modo_id, {})
         
-        # Backup dos dados ANTIGOS antes de limpar
-        cargos_antigos = modo_antigo.get("roles", [])[:]  # Faz uma cópia
-        canais_antigos = modo_antigo.get("channels", [])[:]  # Faz uma cópia
+        cargos_antigos = modo_antigo.get("roles", [])[:]
+        canais_antigos = modo_antigo.get("channels", [])[:]
         nome_antigo = modo_antigo.get("nome", "")
         
-        logger.debug(f"[BACKUP] Backup feito ANTES da edição:")
-        logger.debug(f"[BACKUP] - Modo ID: {modo_id}")
-        logger.debug(f"[BACKUP] - Nome antigo: {nome_antigo}") 
-        logger.debug(f"[BACKUP] - Cargos antigos: {cargos_antigos}")
-        logger.debug(f"[BACKUP] - Canais antigos: {canais_antigos}")
+        logger.debug(f"[BACKUP] Backup feito ANTES da edição do modo {modo_id}")
         
-        # Salva o backup no estado do usuário
         if 'backup_data' not in criando_modo:
             criando_modo['backup_data'] = {}
         criando_modo['backup_data'][user_id] = {
@@ -1950,7 +1908,7 @@ async def on_message(message):
             'nome_antigo': nome_antigo
         }
 
-        # limpar e preparar para a edição
+# Clean and prepare for editing
         dados = carregar_modos()
         if guild_id and str(guild_id) not in dados:
             dados[str(guild_id)] = {"modos": {}}
@@ -1971,6 +1929,7 @@ async def on_message(message):
 
         logger.info(f"[EDIT] Usuário {user_id} entrou em modo de edição para '{nome_modo}' (ID: {modo_id}) no servidor {guild_id}.")
 
+        # Send selection embed and setup reactions
         embed = get_mode_selected_embed(nome_modo, idioma)
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
@@ -1984,7 +1943,7 @@ async def on_message(message):
         logger.debug(f"[EDIT] Embed de edição enviado para o modo '{nome_modo}' com reações configuradas.")
         return
 
-    # -------------------- ETAPA APAGAR MODO --------------------
+    # Delete mode stage
     current = user_progress.get(guild_id, {}).get(user_id)
     if current == "get_delete_mode_embed" and message.content.startswith("#"):
         logger.debug(f"[DELETE DEBUG] Entrando na seção de apagar - Content: {message.content}")
@@ -2001,11 +1960,11 @@ async def on_message(message):
             user_progress[guild_id][user_id] = "get_delete_error_embed"
             return
 
-        # Salva o modo_id para confirmação
+        # Save ID for confirmation
         modo_ids[user_id] = modo_id
         criando_modo[user_id] = "confirmando_exclusao"
 
-        # Envia embed de confirmação
+        # Send confirmation embed
         embed = get_delete_confirm_embed(idioma, nome_modo)
         await limpar_mensagens(message.channel, bot.user, message.author)
         msg = await message.channel.send(embed=embed)
@@ -2017,33 +1976,34 @@ async def on_message(message):
         logger.debug(f"[DELETE] Confirmação de exclusão enviada para modo {modo_id}")
         return
 
-    # -------------------- ETAPA NOME (criação ou edição) --------------------
+    # Name stage for creation or edition
     if message.content.startswith("#"):
-        # VERIFICAÇÃO EXTRA: Se está no fluxo de apagar, NÃO processa como criação
+        # Extra check for delete flow
         current = user_progress.get(guild_id, {}).get(user_id)
         if current == "get_delete_mode_embed":
             return
 
         logger.debug(f"[FLOW] Detectado início da etapa de nome. Conteúdo: {message.content}")
 
-        # Ignora mensagens de nome dentro do get_create_embed
+        # Skip name messages during creation embed
         if current == "get_create_embed":
             logger.debug("[SKIP] Ignorando mensagem de nome dentro de get_create_embed.")
             return
 
+        # Reset user state
         logger.debug(f"[STATE] Resetando estado do usuário {user_id} na guilda {guild_id}.")
         resetar_estado_usuario(guild_id, user_id)
         
         nome_modo = message.content[1:].strip()
         logger.debug(f"[INPUT] Nome do modo recebido: '{nome_modo}' (len={len(nome_modo)})")
 
-        # Validação de tamanho
+        # Length validation
         if not 2 <= len(nome_modo) <= 15:
             logger.debug(f"[VALIDATION] Nome inválido: '{nome_modo}' (tamanho fora do limite).")
             embed = get_invalid_name_embed(idioma)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
-            user_progress[guild_id][user_id] = "get_invalid_name_embed"  # ATUALIZA ESTADO
+            user_progress[guild_id][user_id] = "get_invalid_name_embed"
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
             criando_modo[user_id] = "nome_invalido"
@@ -2051,26 +2011,23 @@ async def on_message(message):
             logger.debug(f"[STATE] Usuário {user_id} marcado como 'nome_invalido'. Embed de aviso enviada.")
             return
 
-        # Carregar dados ANTES de verificar edição
+        # Load data and check edition status
         dados = carregar_modos()
         modo_id = modo_ids.get(user_id)
         
-        # Verificar se está editando usando o backup_data
         esta_editando = (
             modo_id and 
             dados.get(str(guild_id), {}).get("modos", {}).get(modo_id, {}).get("em_edicao", False)
         )
         logger.debug(f"[CHECK] modo_id={modo_id}, está_editando={esta_editando}")
 
-        # Variável para controlar o estado final
         estado_final = None
         embed_final = None
 
         if esta_editando:
-            # -------------------- EDIÇÃO --------------------
+            # Mode edition
             logger.debug(f"[EDIT] Editando modo existente (id={modo_id}) com novo nome: '{nome_modo}'")
             
-            # MANTER os dados antigos do backup, só atualizar o nome
             dados[str(guild_id)]["modos"][modo_id]["nome"] = nome_modo
             salvar_modos(dados)
             MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = dados[str(guild_id)]["modos"][modo_id]
@@ -2080,7 +2037,7 @@ async def on_message(message):
             estado_final = "get_name_saved_embed"
             logger.debug(f"[EDIT] Nome do modo atualizado e salvo no cache.")
         else:
-            # -------------------- CRIAÇÃO --------------------
+            # Mode creation
             logger.debug(f"[CREATE] Iniciando criação do modo '{nome_modo}'.")
             modo_id_existente = modo_existe(guild_id, nome_modo)
             if modo_id_existente:
@@ -2093,14 +2050,14 @@ async def on_message(message):
                 modo_ids[user_id] = modo_id
                 logger.debug(f"[CREATE] Novo modo criado com id={modo_id}.")
 
-                # Recarrega dados e garante estrutura
+                # Reload and ensure structure
                 dados = carregar_modos()
                 dados.setdefault(str(guild_id), {}).setdefault("modos", {}).setdefault(modo_id, {})
                 dados[str(guild_id)]["modos"][modo_id]["em_edicao"] = True
                 salvar_modos(dados)
                 logger.debug(f"[DATA] Dados recarregados e estrutura garantida para o modo {modo_id}.")
 
-                # Atualiza cache
+                # Update cache
                 MODOS_CACHE.setdefault(str(guild_id), {}).setdefault("modos", {})[modo_id] = dados[str(guild_id)]["modos"][modo_id]
                 logger.debug(f"[CACHE] Modo {modo_id} adicionado ao MODOS_CACHE.")
 
@@ -2109,7 +2066,7 @@ async def on_message(message):
                 estado_final = "get_name_saved_embed"
                 logger.debug(f"[CREATE] Criação concluída para o modo '{nome_modo}'.")
 
-        # Atualiza histórico e envia embed final
+        # Update history and send final embed
         push_embed(user_id, "get_create_embed")
         logger.debug(f"[UI] Atualizando histórico e enviando embed final para {user_id}.")
         await limpar_mensagens(message.channel, bot.user, message.author)
@@ -2124,18 +2081,16 @@ async def on_message(message):
             
         mensagem_voltar_ids[str(guild_id)] = msg.id
         mensagem_avancar_ids[str(guild_id)] = msg.id
-        
-        # Usar o estado_final correto
         user_progress.setdefault(guild_id, {})[user_id] = estado_final
         
         logger.debug(f"[STATE] Estado final: user_progress={estado_final}, criando_modo={criando_modo.get(user_id)}")
         return
     
-    # -------------------- ETAPA CARGO --------------------
+    # Role stage
     if estado == "selecionando_cargo":
         logger.debug(f"[FLOW] Iniciando etapa de seleção de cargo para user={user_id}, guild={guild_id}.")
         
-        # DEBUG: Verificar se temos backup
+        # Check backup existence
         if 'backup_data' in criando_modo and user_id in criando_modo['backup_data']:
             backup = criando_modo['backup_data'][user_id]
             logger.debug(f"[DEBUG] Backup encontrado na etapa de cargo: cargos_antigos={backup['cargos_antigos']}, canais_antigos={backup['canais_antigos']}")
@@ -2144,6 +2099,7 @@ async def on_message(message):
         
         roles = []
 
+        # Parse role from message
         if message.role_mentions:
             roles = message.role_mentions
             logger.debug(f"[INPUT] Roles mencionadas diretamente: {[r.name for r in roles]}")
@@ -2163,43 +2119,41 @@ async def on_message(message):
                         roles = [role]
                         logger.debug(f"[INPUT] Role encontrada por nome: {role.name}")
 
+        # Invalid role handler
         if not roles:
             logger.debug(f"[VALIDATION] Nenhum cargo válido encontrado para '{message.content}'.")
             embed = get_invalid_role_embed(idioma)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
-            user_progress[guild_id][user_id] = "get_invalid_role_embed"  # ATUALIZA ESTADO
+            user_progress[guild_id][user_id] = "get_invalid_role_embed"
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
             criando_modo[user_id] = "cargo_invalido"
             logger.debug(f"[STATE] usuário {user_id} marcado como 'cargo_invalido'. Embed enviado.")
             return
 
-        # --- NOVA FUNCIONALIDADE: Limpeza inteligente de cargos antigos durante EDIÇÃO ---
+        # Smart cleanup for old roles during edition
         if em_edicao.get(user_id, False) and modo_ids.get(user_id):
             modo_id = modo_ids[user_id]
             logger.debug(f"[CLEANUP] Modo em edição detectado. Executando limpeza inteligente para modo {modo_id}")
             
-            # Carrega dados do modo atual
             modos = carregar_modos()
             guild_id_str = str(guild_id)
             
             if guild_id_str in modos and modo_id in modos[guild_id_str]["modos"]:
                 modo = modos[guild_id_str]["modos"][modo_id]
                 
-                # Verifica se tem cargo antigo definido
                 if modo.get("roles"):
                     cargo_antigo_id = int(modo["roles"][0])
                     cargo_antigo = message.guild.get_role(cargo_antigo_id)
                     
                     if cargo_antigo:
-                        # Verifica se o bot pode gerenciar este cargo
+                        # Check bot permissions for role
                         bot_member = message.guild.get_member(bot.user.id)
                         bot_posicao = bot_member.top_role.position
                         cargo_posicao = cargo_antigo.position
                         
                         if cargo_posicao < bot_posicao:
-                            # Bot tem permissão para gerenciar este cargo
                             if modo.get("channels"):
                                 canais_limpos = []
                                 erros_limpeza = []
@@ -2210,10 +2164,9 @@ async def on_message(message):
                                         canal = message.guild.get_channel(canal_id)
                                         
                                         if canal:
-                                            # Verifica se o bot tem permissão de gerenciar canais
+                                            # Manage role permissions cleanup
                                             bot_permissions = canal.permissions_for(bot_member)
                                             if bot_permissions.manage_roles:
-                                                # Remove as permissões do cargo antigo
                                                 await canal.set_permissions(cargo_antigo, overwrite=None)
                                                 canais_limpos.append(canal)
                                                 logger.debug(f"[CLEANUP] Cargo antigo {cargo_antigo.name} removido do canal {canal.name}")
@@ -2236,6 +2189,7 @@ async def on_message(message):
                     else:
                         logger.warning(f"[CLEANUP] Cargo antigo com ID {cargo_antigo_id} não encontrado no servidor")
 
+# Save role data and update cache
         try:
             salvar_roles_modo(guild_id, modo_ids[user_id], roles)
             salvar_modos(carregar_modos())
@@ -2245,18 +2199,20 @@ async def on_message(message):
             embed = get_invalid_role_embed(idioma)
             await limpar_mensagens(message.channel, bot.user, message.author)
             msg = await message.channel.send(embed=embed)
-            user_progress[guild_id][user_id] = "get_invalid_role_embed"  # ATUALIZA ESTADO
+            user_progress[guild_id][user_id] = "get_invalid_role_embed"
             await msg.add_reaction("🔙")
             mensagem_voltar_ids[str(guild_id)] = msg.id
             criando_modo[user_id] = "cargo_invalido"
             return
 
+        # UI Cleanup
         try:
             await message.delete()
             logger.debug(f"[UI] Mensagem original do usuário deletada.")
         except:
             logger.debug(f"[WARN] Falha ao deletar mensagem do usuário.")
 
+        # Role confirmation and progress update
         role = roles[0]
         embed = get_role_saved_embed(idioma, role.name)
         await limpar_mensagens(message.channel, bot.user, message.author)
@@ -2270,16 +2226,17 @@ async def on_message(message):
         logger.debug(f"[STATE] Cargo '{role.name}' salvo com sucesso. user_progress atualizado para 'get_role_saved_embed'.")
         return
 
-    # ----------------- CHAMADA DOS COMANDOS -----------------
-    await bot.process_commands(message) #Não remova, se não os comandos não serão chamados.
+    # Command processing
+    await bot.process_commands(message)
 
-# ----------------- COMANDOS -----------------
+# Bot commands
 @bot.command(name="setup", aliases=["Setup", "SETUP"])
 async def setup(ctx):
+    # Setup initialization and state clearing
     logger.debug(f"[CMD] setup chamado por {ctx.author} ({ctx.author.id}) no servidor {ctx.guild.name} ({ctx.guild.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
     idioma = obter_idioma(ctx.guild.id)
@@ -2289,17 +2246,18 @@ async def setup(ctx):
 
 @bot.command(name="criar", aliases=["Criar", "CRIAR", "create", "Create", "CREATE"])
 async def criar(ctx):
+    # Mode creation initialization
     logger.debug(f"[CMD] criar chamado por {ctx.author} ({ctx.author.id}) no servidor {ctx.guild.name} ({ctx.guild.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
     user_id = ctx.author.id
     guild_id = ctx.guild.id
 
-    # Reseta flags de edição
+    # Reset edition flags
     if em_edicao.get(user_id):
         em_edicao[user_id] = False
         modo_atual[user_id] = None
@@ -2310,7 +2268,7 @@ async def criar(ctx):
     if guild_id in user_progress:
         user_progress[guild_id].pop(user_id, None)
 
-    # Garante que todos os modos antigos em edição sejam resetados
+    # Reset unfinished modes in database
     dados = carregar_modos()
     if str(guild_id) in dados:
         for mid, m in dados[str(guild_id)].get("modos", {}).items():
@@ -2319,10 +2277,10 @@ async def criar(ctx):
                 logger.debug(f"[CRIAÇÃO] Reset em_edicao do modo {mid} do usuário {user_id}")
     salvar_modos(dados)
 
-    embed = get_create_embed(ctx.guild)  # só passa o guild
+    # UI setup for creation flow
+    embed = get_create_embed(ctx.guild)
     msg = await ctx.channel.send(embed=embed)
 
-    # Reações de navegação
     if flow["get_create_embed"].get("back"):
         await msg.add_reaction("🔙")
     if flow["get_create_embed"].get("next"):
@@ -2336,10 +2294,11 @@ async def criar(ctx):
 
 @bot.command(name="editar", aliases=["Editar", "EDITAR", "edit", "Edit", "EDIT"])
 async def editar(ctx):
+    # Mode edition command
     logger.debug(f"[CMD] editar chamado por {ctx.author} ({ctx.author.id}) no servidor {ctx.guild.name} ({ctx.guild.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
@@ -2362,10 +2321,11 @@ async def editar(ctx):
 
 @bot.command(name="verificar", aliases=["Verificar", "VERIFICAR", "check", "Check", "CHECK"])
 async def verificar(ctx):
+    # Check roles command
     logger.debug(f"[CMD] verificar chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
@@ -2381,10 +2341,11 @@ async def verificar(ctx):
 
 @bot.command(name="funções", aliases=["Funções", "FUNÇÕES", "functions", "Functions", "FUNCTIONS"])
 async def funcoes(ctx):
+    # Bot functions command
     logger.debug(f"[CMD] funcoes chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
@@ -2404,10 +2365,11 @@ async def funcoes(ctx):
 
 @bot.command(name="sobre", aliases=["Sobre", "SOBRE", "about", "About", "ABOUT"])
 async def sobre(ctx):
+    # Bot information command
     logger.debug(f"[CMD] sobre chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
@@ -2427,21 +2389,21 @@ async def sobre(ctx):
 
 @bot.command(name="idioma", aliases=["Idioma", "IDIOMA", "language", "Language", "LANGUAGE"])
 async def idioma(ctx):
+    # Language selection command
     logger.debug(f"[CMD] idioma chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)  # Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
     user_id = ctx.author.id
     guild_id = ctx.guild.id
     
-    # Reseta o estado atual do usuário
+    # State reset
     if guild_id in user_progress and user_id in user_progress[guild_id]:
         user_progress[guild_id].pop(user_id, None)
     
-    # Limpa qualquer estado de criação/edição
     criando_modo.pop(user_id, None)
     modo_ids.pop(user_id, None)
     em_edicao.pop(user_id, None)
@@ -2454,7 +2416,7 @@ async def idioma(ctx):
     await msg.add_reaction("🇺🇸")
     await msg.add_reaction("🇧🇷")
 
-    # Atualiza a mensagem de idioma corretamente
+    # Update language message trackers
     mensagem_idioma_id[str(ctx.guild.id)] = msg.id
     resposta_enviada.discard(str(ctx.guild.id))
     logger.debug(f"[IDIOMA] mensagem de idioma enviada no servidor {ctx.guild.id}")
@@ -2462,31 +2424,32 @@ async def idioma(ctx):
 @bot.command(name="log", aliases=["Log", "LOG"])
 @commands.has_permissions(manage_guild=True)
 async def toggle_log(ctx):
+    # Logger toggle command flow
     global logger
 
     logger.debug(f"[CMD] log chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
-    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id) #Não inverta a ordem de finalização e limpeza!
+    finalizar_modos_em_edicao(ctx.guild.id, ctx.author.id)
     limpar_modos_usuario(ctx.guild.id, ctx.author.id)
     limpar_modos_incompletos(ctx.guild.id)
 
-    # Em vez de alternar imediatamente, inicia o fluxo de confirmação via embeds
+    # Initialize log confirmation flow
     idioma = obter_idioma(ctx.guild.id)
     embed = get_log_info_embed(idioma)
     msg = await ctx.send(embed=embed)
 
-    # Adiciona reações: voltar, confirmar (ativar), negar (desativar)
+    # Add flow reactions
     try:
         await msg.add_reaction("🔙")
     except Exception:
-        logger.debug("[LOG] Falha ao adicionar reação 🔙 (pode ser permissão).")
+        logger.debug("[LOG] Falha ao adicionar reação 🔙.")
     try:
         await msg.add_reaction("✅")
     except Exception:
-        logger.debug("[LOG] Falha ao adicionar reação ✅ (pode ser permissão).")
+        logger.debug("[LOG] Falha ao adicionar reação ✅.")
 
-    # Atualiza estados para iniciar fluxo
+    # Update navigation state
     mensagem_voltar_ids[str(ctx.guild.id)] = msg.id
     mensagem_avancar_ids[str(ctx.guild.id)] = msg.id
     user_progress.setdefault(ctx.guild.id, {})[ctx.author.id] = "get_log_info_embed"
@@ -2495,6 +2458,7 @@ async def toggle_log(ctx):
 
 @bot.command(name="limpar", aliases=["Limpar", "LIMPAR", "clean", "Clean", "CLEAN"])
 async def limpar(ctx, quantidade: int = 50):
+    # Message cleanup command
     logger.debug(f"[CMD] limpar chamado por {ctx.author} ({ctx.author.id}) com quantidade={quantidade}")
     try:
         await ctx.message.delete()
@@ -2508,6 +2472,7 @@ async def limpar(ctx, quantidade: int = 50):
 
 @bot.command(name="apagar", aliases=["Apagar", "APAGAR", "delete", "Delete", "DELETE"])
 async def deletar(ctx):
+    # Mode deletion command flow
     logger.debug(f"[CMD] deletar (modos) chamado por {ctx.author} ({ctx.author.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
@@ -2519,19 +2484,14 @@ async def deletar(ctx):
     guild_id = ctx.guild.id
     idioma = obter_idioma(guild_id)
     
-    # Limpa estados anteriores
     modo_ids.pop(user_id, None)
     criando_modo[user_id] = None
     
-    # Envia o embed para apagar modos
+    # Filter finished modes only
     modos = carregar_modos().get(str(guild_id), {}).get("modos", {})
+    modos_finalizados = {mid: mdata for mid, mdata in modos.items() if mdata.get("finalizado")}
     
-    # Filtra apenas modos finalizados (evita apagar modos em edição)
-    modos_finalizados = {}
-    for modo_id, modo_data in modos.items():
-        if modo_data.get("finalizado"):
-            modos_finalizados[modo_id] = modo_data
-    
+    # Handle empty mode list
     if not modos_finalizados:
         if idioma == "pt":
             embed = discord.Embed(
@@ -2548,19 +2508,18 @@ async def deletar(ctx):
         await ctx.send(embed=embed)
         return
     
+    # Start deletion UI
     embed = get_delete_mode_embed(idioma, modos_finalizados)
     msg = await ctx.channel.send(embed=embed)
-    
-    # Adiciona reações
     await msg.add_reaction("🔙")
     
-    # Atualiza estados
     user_progress.setdefault(guild_id, {})[user_id] = "get_delete_mode_embed"
     criando_modo[user_id] = "apagando_modo"
     logger.debug(f"[DELETAR] Fluxo de exclusão iniciado para {user_id}")
 
 @bot.command(name="trocar", aliases=["Trocar", "TROCAR", "switch", "Switch", "SWITCH"])
 async def trocar(ctx):
+    # Switch mode command flow
     logger.debug(f"[CMD] trocar chamado por {ctx.author} ({ctx.author.id}) no servidor {ctx.guild.name} ({ctx.guild.id})")
     await ctx.message.delete()
     await limpar_mensagens(ctx.channel, ctx.author, bot.user)
@@ -2573,12 +2532,14 @@ async def trocar(ctx):
     idioma = obter_idioma(guild_id)
     resetar_estado_usuario(guild_id, user_id)
     
+    # Filter finished modes with assigned roles
     modos = carregar_modos().get(str(guild_id), {}).get("modos", {})
     modos_existentes = []
     for modo_id, modo_data in modos.items():
         if modo_data.get("finalizado") and modo_data.get("roles"):
             modos_existentes.append(modo_data["nome"])
     
+    # Send switch mode list
     logger.debug(f"[TROCAR] Modos finalizados encontrados: {modos_existentes}")
     embed = get_switch_mode_list_embed(idioma, modos_existentes)
     msg = await ctx.channel.send(embed=embed)
@@ -2588,13 +2549,14 @@ async def trocar(ctx):
     
     logger.debug(f"[TROCAR] Lista de modos enviada para {user_id} | Modos: {modos_existentes}")
 
-# ----------------- RODA O BOT -----------------
+# Bot startup initialization
 dbx = get_dropbox_client()
 
 if not dbx:
     logger.critical("Dropbox indisponível, abortando inicialização")
     sys.exit(1)
 
+# Files and state management
 bootstrap_data_files(DATA_DIR, CONFIG_PATH)
 
 state_manager = StateManager(dbx)
@@ -2607,6 +2569,7 @@ dropbox_task = None
 
 @bot.event
 async def setup_hook():
+    # Background tasks setup
     global dropbox_task
 
     if dropbox_task is None:
@@ -2616,4 +2579,5 @@ async def setup_hook():
     bot.loop.create_task(create_periodic_state_save(state_manager))
     logger.info("Tarefa de sync do Dropbox agendada")
 
+# Start bot
 bot.run(TOKEN)
